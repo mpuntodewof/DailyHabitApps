@@ -46,5 +46,6 @@ namespace AtomicHabits.Models
         public ICollection<HabitReminder> HabitReminders { get; set; }
         public Streak Streak { get; set; }
         public ICollection<HabitTracking> HabitTrackings { get; set; }
+        public ICollection<HabitTag> HabitTags { get; set; } = new List<HabitTag>();
     }
 }

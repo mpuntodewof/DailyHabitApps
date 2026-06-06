@@ -4,7 +4,8 @@ import {
   IconTable,
   IconSettings,
   IconCalendarWeek,
-  IconChartHistogram
+  IconChartHistogram,
+  IconShieldCog,
 } from "@tabler/icons-react";
 
 
@@ -30,7 +31,7 @@ const Menuitems = [
     title: 'Habits',
     icon: IconCalendarWeek,
     href: '/habits',
-  },  
+  },
   {
     id: uniqueId(),
     title: "Settings",
@@ -42,7 +43,14 @@ const Menuitems = [
     title: "Stats",
     icon: IconChartHistogram,
     href: "/stats",
-  }
+  },
+  {
+    id: uniqueId(),
+    title: "Admin · Users",
+    icon: IconShieldCog,
+    href: "/admin/users",
+    permission: "Users.Read",
+  },
 ];
 
 export default Menuitems;

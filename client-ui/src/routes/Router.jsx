@@ -30,10 +30,12 @@ const Tables = lazy(() => import('../views/tables/Tables'));
 const Stats = lazy(() => import('../views/stats/Stats'));
 // const Profile = lazy(() => import('../views/profile/Profile'));
 const Settings = lazy(() => import('../views/settings/Settings'));
+const AdminUsers = lazy(() => import('../views/admin/AdminUsers'));
 const Error = lazy(() => import('../views/authentication/Error'));
 const Login = lazy(() => import('../views/authentication/Login'));
 const Register = lazy(() => import('../views/authentication/Register'));
 const Forgot = lazy(() => import('../views/authentication/auth/ForgotPassword'));
+const ResetPassword = lazy(() => import('../views/authentication/auth/ResetPassword'));
 
 
 const Router = [
@@ -53,6 +55,7 @@ const Router = [
       { path: '/stats', exact: true, element: <Stats /> },
       { path: '/tables', exact: true, element: <Tables /> },
       { path: '/settings', exact: true, element: <Settings /> },
+      { path: '/admin/users', exact: true, element: <AdminUsers /> },
       { path: '*', element: <Navigate to="/auth/404" /> },
     ],
   },
@@ -67,6 +70,7 @@ const Router = [
       { path: 'login', element: <PublicRoute><Login /></PublicRoute> },
       { path: 'register', element: <PublicRoute><Register /></PublicRoute> },
       { path: 'forgot-password', element: <PublicRoute><Forgot /></PublicRoute> },
+      { path: 'reset-password', element: <PublicRoute><ResetPassword /></PublicRoute> },
       { path: '404', element: <Error /> },
       { path: '*', element: <Navigate to="/auth/404" /> },
     ],

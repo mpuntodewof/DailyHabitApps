@@ -1,4 +1,5 @@
-﻿using AtomicHabits.Models;
+﻿using AtomicHabits.Data;
+using AtomicHabits.Models;
 using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Logging;

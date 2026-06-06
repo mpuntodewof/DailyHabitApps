@@ -13,6 +13,9 @@ import {
 import MoreVertIcon from '@mui/icons-material/MoreVert';
 import EditIcon from '@mui/icons-material/Edit';
 import ClearIcon from '@mui/icons-material/Clear';
+import ArchiveIcon from '@mui/icons-material/Archive';
+import UnarchiveIcon from '@mui/icons-material/Unarchive';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import { styled, alpha } from '@mui/material/styles';
 
 const StyledMenu = styled((props) => (
@@ -51,7 +54,7 @@ const Transition = forwardRef(function Transition(props, ref) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-const HabitMenuButton = ({ onEdit, onDelete }) => {
+const HabitMenuButton = ({ onEdit, onDelete, onArchive, onRestore, onReminders, isArchived = false }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const open = Boolean(anchorEl);
@@ -106,6 +109,22 @@ const HabitMenuButton = ({ onEdit, onDelete }) => {
                 <MenuItem onClick={handleEdit} disableRipple>
                     <EditIcon /> Edit
                 </MenuItem>
+                {onReminders && (
+                    <MenuItem onClick={() => { handleClose(); onReminders(); }} disableRipple>
+                        <NotificationsIcon /> Reminders
+                    </MenuItem>
+                )}
+                {isArchived
+                    ? onRestore && (
+                        <MenuItem onClick={() => { handleClose(); onRestore(); }} disableRipple>
+                            <UnarchiveIcon /> Restore
+                        </MenuItem>
+                    )
+                    : onArchive && (
+                        <MenuItem onClick={() => { handleClose(); onArchive(); }} disableRipple>
+                            <ArchiveIcon /> Archive
+                        </MenuItem>
+                    )}
                 <MenuItem onClick={handleDeleteClick} disableRipple>
                     <ClearIcon /> Delete
                 </MenuItem>

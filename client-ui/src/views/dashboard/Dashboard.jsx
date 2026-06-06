@@ -1,6 +1,8 @@
-import React, { Suspense, lazy } from 'react';
+import React, { Suspense, lazy, useEffect, useState } from 'react';
 import { Grid, Box, Skeleton } from '@mui/material';
 import PageContainer from '../../components/container/PageContainer';
+import api from '../../api/axiosInstance';
+import { getAccessToken } from '../../utils/tokenUtils';
 
 // components
 const SalesOverview = lazy(() => import('./components/SalesOverview'));
@@ -12,18 +14,41 @@ const TopCards = lazy(() => import('./components/TopCards'));
 const HabitCompletionRate = lazy(() => import('./components/habitCompletionRates/HabitCompletionRate'));
 const HabitHeatmapCalendar = lazy(() => import('./components/HabitHeatmapCalendar'));
 
+const buildCurrentMonthHeatmap = (cells) => {
+  if (!Array.isArray(cells)) return {};
+
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = now.getMonth() + 1;
+  const result = {};
+
+  for (const cell of cells) {
+    const d = new Date(cell.date);
+    if (d.getFullYear() === year && d.getMonth() + 1 === month) {
+      result[d.getDate()] = cell.intensity ?? 0;
+    }
+  }
+  return result;
+};
+
 const Dashboard = () => {
   const fallback = <Skeleton variant="rectangular" height={200} animation="wave" />;
+  const [heatmapData, setHeatmapData] = useState({});
 
-  const heatmapData = {
-    1: 1,
-    2: 1,
-    3: 0,
-    4: 1,
-    5: 2,
-    6: 1,
-    7: 1
-  };
+  useEffect(() => {
+    if (!getAccessToken()) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await api.get('/Dashboard/heatmap', { params: { days: 90 } });
+        if (cancelled) return;
+        setHeatmapData(buildCurrentMonthHeatmap(res.data?.result?.cells));
+      } catch (err) {
+        console.error('Failed to load heatmap:', err.message);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   return (
     <PageContainer title="E-commerce Dashboard" description="E-commerce Dashboard">

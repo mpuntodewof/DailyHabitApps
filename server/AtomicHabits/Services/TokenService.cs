@@ -1,4 +1,6 @@
-﻿using AtomicHabits.Models;
+using AtomicHabits.Config;
+using AtomicHabits.Models;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
@@ -13,22 +15,22 @@ namespace AtomicHabits.Service
         Task<string> GenerateRefreshToken();
         string GetUserIdFromToken(string token);
         Dictionary<string, string>? GetClaimsFromToken(string token);
+
+        // Short-lived token issued after password check when 2FA is required.
+        string GenerateTwoFactorPendingToken(User user, TimeSpan lifetime);
+        int? ValidateTwoFactorPendingToken(string token);
     }
 
     public class TokenService : ITokenService
     {
-        private readonly IConfiguration _config;
+        private readonly JwtOptions _jwt;
         private readonly SymmetricSecurityKey _signingKey;
-        private readonly string _issuer;
-        private readonly string _audience;
         private readonly ILogger<TokenService> _log;
 
-        public TokenService(IConfiguration config, ILogger<TokenService> log) 
+        public TokenService(IOptions<JwtOptions> jwt, ILogger<TokenService> log)
         {
-            _config = config;
-            _signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(Environment.GetEnvironmentVariable("JWT_SECRET")!));
-            _issuer = Environment.GetEnvironmentVariable("JWT_ISSUER")!;
-            _audience = Environment.GetEnvironmentVariable("JWT_AUDIENCE")!;
+            _jwt = jwt.Value;
+            _signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(_jwt.Secret));
             _log = log;
         }
 
@@ -43,13 +45,13 @@ namespace AtomicHabits.Service
                     new("username", user.Username ?? string.Empty)
                 };
 
-                roles.ForEach(r => claims.Add(new Claim(ClaimTypes.Role, r)));               
+                roles.ForEach(r => claims.Add(new Claim(ClaimTypes.Role, r)));
 
                 var token = new JwtSecurityToken(
-                    _issuer,
-                    _audience,
+                    _jwt.Issuer,
+                    _jwt.Audience,
                     claims,
-                    expires: DateTime.UtcNow.AddHours(1),
+                    expires: DateTime.UtcNow.AddMinutes(_jwt.AccessTokenMinutes),
                     signingCredentials: new SigningCredentials(_signingKey, SecurityAlgorithms.HmacSha256)
                 );
 
@@ -57,9 +59,9 @@ namespace AtomicHabits.Service
             }
             catch (Exception ex)
             {
-                _log.LogError("Genereate Token error: " + ex.Message);
-                throw new Exception("Genereate Token error: " + ex.Message);
-            }           
+                _log.LogError("Generate Token error: " + ex.Message);
+                throw new Exception("Generate Token error: " + ex.Message);
+            }
         }
 
         public Task<string> GenerateRefreshToken()
@@ -83,14 +85,59 @@ namespace AtomicHabits.Service
                 ValidateAudience = true,
                 ValidateIssuerSigningKey = true,
                 ValidateLifetime = false,
-                ValidIssuer = _issuer,
-                ValidAudience = _audience,
+                ValidIssuer = _jwt.Issuer,
+                ValidAudience = _jwt.Audience,
                 IssuerSigningKey = _signingKey
             };
 
 
             var principal = handler.ValidateToken(token, parameters, out _);
             return principal.Claims.ToDictionary(c => c.Type, c => c.Value);
+        }
+
+        public string GenerateTwoFactorPendingToken(User user, TimeSpan lifetime)
+        {
+            var claims = new[]
+            {
+                new Claim(JwtRegisteredClaimNames.Sub, user.Id.ToString()),
+                new Claim("twofa_pending", "true"),
+                new Claim(JwtRegisteredClaimNames.Jti, Guid.NewGuid().ToString())
+            };
+
+            var token = new JwtSecurityToken(
+                _jwt.Issuer,
+                _jwt.Audience,
+                claims,
+                expires: DateTime.UtcNow.Add(lifetime),
+                signingCredentials: new SigningCredentials(_signingKey, SecurityAlgorithms.HmacSha256)
+            );
+            return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        public int? ValidateTwoFactorPendingToken(string token)
+        {
+            try
+            {
+                var handler = new JwtSecurityTokenHandler();
+                var principal = handler.ValidateToken(token, new TokenValidationParameters
+                {
+                    ValidateIssuer = true,
+                    ValidateAudience = true,
+                    ValidateIssuerSigningKey = true,
+                    ValidateLifetime = true,
+                    ValidIssuer = _jwt.Issuer,
+                    ValidAudience = _jwt.Audience,
+                    IssuerSigningKey = _signingKey
+                }, out _);
+
+                if (principal.FindFirst("twofa_pending")?.Value != "true") return null;
+                var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+                return int.TryParse(sub, out var id) ? id : null;
+            }
+            catch
+            {
+                return null;
+            }
         }
     }
 }

@@ -1,11 +1,12 @@
 import React, { useEffect } from 'react';
 import { useState } from 'react';
-import { Grid, Box, Card, Typography, Stack, Checkbox, Button, CircularProgress } from '@mui/material';
+import { Grid, Box, Card, Typography, Stack, Checkbox, Button, CircularProgress, Chip, TextField, MenuItem, FormControlLabel, Switch, Pagination } from '@mui/material';
 import { IconFlame, IconPlus, IconProgressCheck, IconMapPinFilled, IconClockHour1 } from '@tabler/icons-react';
 import { useHabits } from '../../context/HabitContext';
 import { useAuth } from '../../context/AuthContext';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { useHabitTracking } from '../../context/HabitTrackingContext';
+import { useTags } from '../../context/TagContext';
 import CircleCheckedFilled from '@mui/icons-material/CheckCircle';
 import CircleUnchecked from '@mui/icons-material/RadioButtonUnchecked';
 
@@ -15,13 +16,23 @@ import HabitSummaryCards from "./components/HabitSummaryCard";
 import PageContainer from "../../components/container/PageContainer";
 import HabitDialogForm from './components/HabitDialogForm';
 import HabitTimeDialog from './components/HabitTimeDialog';
+import HabitRemindersDialog from './components/HabitRemindersDialog';
 
 
 const Habit = () => {
     const [open, setOpen] = useState(false);
-    const { habits, loading, createHabit, fetchHabits, updateHabit, deleteHabit } = useHabits();
+    const { habits, loading, pagination, createHabit, fetchHabits, searchHabits, updateHabit, deleteHabit, archiveHabit, restoreHabit } = useHabits();
     const { submitHabitTracking, getHabitStats, submitDailyHabit } = useHabitTracking();
+    const { tags } = useTags();
     const { user } = useAuth();
+
+    const [search, setSearch] = useState('');
+    const [tagFilter, setTagFilter] = useState('');
+    const [includeArchived, setIncludeArchived] = useState(false);
+    const [page, setPage] = useState(1);
+    const pageSize = 20;
+
+    const [reminderDialog, setReminderDialog] = useState({ open: false, habitId: null, habitName: '' });
 
     const handleOpen = () => setOpen(true);
     const [openTrackingDialog, setOpenTrackingDialog] = useState(false);
@@ -36,8 +47,14 @@ const Habit = () => {
 
     useEffect(() => {
         if (!user?.sub) return;
-        fetchHabits(user.sub);
-    }, [fetchHabits, user?.sub]);
+        searchHabits({
+            search,
+            tagId: tagFilter ? Number(tagFilter) : null,
+            includeArchived,
+            page,
+            pageSize,
+        });
+    }, [searchHabits, user?.sub, search, tagFilter, includeArchived, page]);
 
     useEffect(() => {
         if (!habits?.result || habits.result.length === 0) return;
@@ -84,6 +101,24 @@ const Habit = () => {
         }
     }
 
+    const handleArchiveHabit = async (habitId) => {
+        try {
+            await archiveHabit(habitId);
+            showSuccess('Habit archived');
+        } catch (error) {
+            showError('Failed to archive habit');
+        }
+    }
+
+    const handleRestoreHabit = async (habitId) => {
+        try {
+            await restoreHabit(habitId);
+            showSuccess('Habit restored');
+        } catch (error) {
+            showError('Failed to restore habit');
+        }
+    }
+
     const handleSubmitHabit = async (habit) => {
         try {
             let res;
@@ -106,7 +141,13 @@ const Habit = () => {
                     showError('Failed to create habit.');
                 }
             }
-            fetchHabits(user.sub);
+            searchHabits({
+                search,
+                tagId: tagFilter ? Number(tagFilter) : null,
+                includeArchived,
+                page,
+                pageSize,
+            });
             setOpen(false);
             setEditMode(false);
             setSelectedCardHabit(null);
@@ -194,12 +235,50 @@ const Habit = () => {
                     </Grid>
                 </Grid>
 
+                {/* Filter Toolbar */}
+                <Box display="flex" flexWrap="wrap" gap={2} alignItems="center" sx={{ mt: 3, mb: 2 }}>
+                    <TextField
+                        size="small"
+                        label="Search"
+                        value={search}
+                        onChange={(e) => { setSearch(e.target.value); setPage(1); }}
+                        sx={{ minWidth: 220 }}
+                    />
+                    <TextField
+                        size="small"
+                        select
+                        label="Tag"
+                        value={tagFilter}
+                        onChange={(e) => { setTagFilter(e.target.value); setPage(1); }}
+                        sx={{ minWidth: 180 }}
+                    >
+                        <MenuItem value="">All tags</MenuItem>
+                        {tags.map((t) => (
+                            <MenuItem key={t.id} value={t.id}>{t.name}</MenuItem>
+                        ))}
+                    </TextField>
+                    <FormControlLabel
+                        control={
+                            <Switch
+                                checked={includeArchived}
+                                onChange={(e) => { setIncludeArchived(e.target.checked); setPage(1); }}
+                            />
+                        }
+                        label="Show archived"
+                    />
+                    {pagination?.total > 0 && (
+                        <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+                            {pagination.total} {pagination.total === 1 ? 'habit' : 'habits'}
+                        </Typography>
+                    )}
+                </Box>
+
                 {/* Habit Card Section*/}
                 {loading ? (
                     <Grid item xs={12} display="flex" justifyContent="center" alignItems="center">
                         <CircularProgress color="primary" />
                     </Grid>
-                ) : habits.length === 0 ? (
+                ) : !habits?.result || habits.result.length === 0 ? (
                     <Grid item xs={12}>
                         <Card sx={{ padding: 3, height: '100%', width: '100%', textAlign: 'center' }}>
                             <Typography variant="h6" color="textSecondary">
@@ -244,12 +323,31 @@ const Habit = () => {
                                                 <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
                                                     {habit.description}
                                                 </Typography>
+                                                {Array.isArray(habit.habitTags) && habit.habitTags.length > 0 && (
+                                                    <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
+                                                        {habit.habitTags.map((ht) => (
+                                                            <Chip
+                                                                key={ht.tag?.id ?? ht.tagId}
+                                                                label={ht.tag?.name ?? ''}
+                                                                size="small"
+                                                                sx={{
+                                                                    bgcolor: ht.tag?.color || 'default',
+                                                                    color: ht.tag?.color ? '#fff' : undefined,
+                                                                }}
+                                                            />
+                                                        ))}
+                                                    </Stack>
+                                                )}
                                             </Box>
                                             {/* Right: Menu Button */}
                                             <Box display="flex" alignItems="center" sx={{ flex: 0 }}>
                                                 <HabitMenuButton
                                                     onEdit={() => handleEditHabit(habit)}
                                                     onDelete={() => handleDeleteHabit(habit.id)}
+                                                    onArchive={() => handleArchiveHabit(habit.id)}
+                                                    onRestore={() => handleRestoreHabit(habit.id)}
+                                                    onReminders={() => setReminderDialog({ open: true, habitId: habit.id, habitName: habit.name })}
+                                                    isArchived={!!habit.isArchived}
                                                 />
                                             </Box>
                                         </Box>
@@ -299,6 +397,17 @@ const Habit = () => {
                     isEditMode={editMode}
                 />
 
+                {pagination?.total > pageSize && (
+                    <Box display="flex" justifyContent="center" sx={{ mt: 3 }}>
+                        <Pagination
+                            count={Math.ceil(pagination.total / pageSize)}
+                            page={page}
+                            onChange={(_, value) => setPage(value)}
+                            color="primary"
+                        />
+                    </Box>
+                )}
+
                 {/* <pre>{JSON.stringify(habits, null, 2)}</pre> */}
                 {/* <pre>{JSON.stringify(selectedCardHabit, null, 2)}</pre> */}
 
@@ -315,6 +424,13 @@ const Habit = () => {
                     open={openTimeDialog}
                     onClose={() => { setOpenTimeDialog(false); setPendingHabitId(null); }}
                     onSave={handleSaveTimeSpent}
+                />
+
+                <HabitRemindersDialog
+                    open={reminderDialog.open}
+                    habitId={reminderDialog.habitId}
+                    habitName={reminderDialog.habitName}
+                    onClose={() => setReminderDialog({ open: false, habitId: null, habitName: '' })}
                 />
 
             </Box >

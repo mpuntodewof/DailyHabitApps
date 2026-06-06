@@ -1,4 +1,5 @@
-﻿using AtomicHabits.Models;
+﻿using AtomicHabits.Data;
+using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
 using Microsoft.EntityFrameworkCore;
 
@@ -8,10 +9,12 @@ namespace AtomicHabits.Repositories
     {
         Task<Habit?> GetHabitById(int habitId);
         Task<Habit?> GetHabitbyUserHabitId(int userId, int habitId);
-        Task<List<Habit>> GetHabitByUserId(int userId);
+        Task<List<Habit>> GetHabitByUserId(int userId, bool includeArchived = false);
+        Task<(List<Habit> Items, int Total)> SearchAsync(int userId, string? search, int? tagId, bool includeArchived, int page, int pageSize, CancellationToken ct);
         Task<bool> PostHabit(HabitDTO habitDto);
         Task<bool> UpdateHabit(int habitId, HabitDTO habitDto);
         Task<bool> DeleteHabit(int habitId);
+        Task<bool> SetArchivedAsync(int habitId, int userId, bool archived, CancellationToken ct);
 
         Task<List<Habit>> GetActiveHabits(int userId, CancellationToken ct);
         Task<List<HabitTracking>> GetTodayTrackings(List<int> habitIds, DateTime today, CancellationToken ct);
@@ -57,19 +60,84 @@ namespace AtomicHabits.Repositories
             }
         }
 
-        public async Task<List<Habit>> GetHabitByUserId(int userId)
+        public async Task<List<Habit>> GetHabitByUserId(int userId, bool includeArchived = false)
         {
             try
             {
-                var habits = await _db.Habits
-                   .Where(h => h.UserId == userId)
-                   .ToListAsync();
+                var query = _db.Habits
+                    .Include(h => h.HabitTags)
+                        .ThenInclude(ht => ht.Tag)
+                    .Where(h => h.UserId == userId);
+                if (!includeArchived) query = query.Where(h => !h.IsArchived);
 
-                return habits;
+                return await query.ToListAsync();
             }
             catch (Exception ex)
             {
                 _logger.LogError(ex, "[GetHabitByUserId] Error");
+                throw;
+            }
+        }
+
+        public async Task<(List<Habit> Items, int Total)> SearchAsync(int userId, string? search, int? tagId, bool includeArchived, int page, int pageSize, CancellationToken ct)
+        {
+            try
+            {
+                if (page < 1) page = 1;
+                if (pageSize < 1) pageSize = 20;
+                if (pageSize > 100) pageSize = 100;
+
+                var query = _db.Habits.AsQueryable().Where(h => h.UserId == userId);
+                if (!includeArchived) query = query.Where(h => !h.IsArchived);
+
+                if (!string.IsNullOrWhiteSpace(search))
+                {
+                    var s = search.Trim();
+                    query = query.Where(h => EF.Functions.Like(h.Name, $"%{s}%")
+                        || (h.Description != null && EF.Functions.Like(h.Description, $"%{s}%")));
+                }
+
+                if (tagId.HasValue)
+                {
+                    var tid = tagId.Value;
+                    query = query.Where(h => h.HabitTags.Any(ht => ht.TagId == tid));
+                }
+
+                var total = await query.CountAsync(ct);
+
+                var items = await query
+                    .Include(h => h.HabitTags)
+                        .ThenInclude(ht => ht.Tag)
+                    .OrderByDescending(h => h.CreatedAt)
+                    .Skip((page - 1) * pageSize)
+                    .Take(pageSize)
+                    .ToListAsync(ct);
+
+                return (items, total);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SearchAsync] Error");
+                throw;
+            }
+        }
+
+        public async Task<bool> SetArchivedAsync(int habitId, int userId, bool archived, CancellationToken ct)
+        {
+            try
+            {
+                var habit = await _db.Habits
+                    .FirstOrDefaultAsync(h => h.Id == habitId && h.UserId == userId, ct);
+                if (habit == null) return false;
+
+                habit.IsArchived = archived;
+                habit.UpdatedAt = DateTime.UtcNow;
+                await _db.SaveChangesAsync(ct);
+                return true;
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[SetArchivedAsync] Error");
                 throw;
             }
         }

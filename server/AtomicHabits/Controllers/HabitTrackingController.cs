@@ -1,6 +1,7 @@
 ﻿using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
 using AtomicHabits.Services;
+using AtomicHabits.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
@@ -22,7 +23,10 @@ namespace AtomicHabits.Controllers
         [HttpGet("habit-tracking-dates")]
         public async Task<IActionResult> GetHabitTrackingDates(int habitId, int userId, CancellationToken cancellationToken)
         {
-            var res = await _habitTracService.GetHabitTrackingDates(habitId, userId, cancellationToken);
+            var authUserId = User.GetUserId();
+            if (authUserId is null) return Unauthorized();
+
+            var res = await _habitTracService.GetHabitTrackingDates(habitId, authUserId.Value, cancellationToken);
             return StatusCode((int)res.StatusCode, res);
         }
 
@@ -30,7 +34,10 @@ namespace AtomicHabits.Controllers
         [HttpGet("get-habit-stats/{habitId}/{userId}")]
         public async Task<IActionResult> GetHabitStats(int habitId, int userId, CancellationToken cancellationToken)
         {
-            var res = await _habitTracService.GetHabitStats(habitId, userId, cancellationToken);
+            var authUserId = User.GetUserId();
+            if (authUserId is null) return Unauthorized();
+
+            var res = await _habitTracService.GetHabitStats(habitId, authUserId.Value, cancellationToken);
             return StatusCode((int)res.StatusCode, res);
         }
 
@@ -38,6 +45,10 @@ namespace AtomicHabits.Controllers
         [HttpGet("get-weekly")]
         public async Task<ActionResult<ApiResponse>> GetWeeklyDist([FromQuery] WeeklyDistributionDTO dto, CancellationToken ct)
         {
+            var authUserId = User.GetUserId();
+            if (authUserId is null) return Unauthorized();
+            dto.UserId = authUserId.Value;
+
             var rawAuth = Request.Headers["Authorization"].ToString();
             var token = rawAuth?.Replace("Bearer ", "");
 
@@ -50,6 +61,10 @@ namespace AtomicHabits.Controllers
         [HttpGet("get-monthly")]
         public async Task<ActionResult<ApiResponse>> GetMonthlyDist([FromQuery] MonthlyDistributionDTO dto, CancellationToken ct)
         {
+            var authUserId = User.GetUserId();
+            if (authUserId is null) return Unauthorized();
+            dto.UserId = authUserId.Value;
+
             var rawAuth = Request.Headers["Authorization"].ToString();
             var token = rawAuth?.Replace("Bearer ", "");
 
@@ -62,6 +77,10 @@ namespace AtomicHabits.Controllers
         [HttpGet("get-yearly")]
         public async Task<ActionResult<ApiResponse>> GetYearlyDist([FromQuery] YearlyDistributionDTO dto, CancellationToken ct)
         {
+            var authUserId = User.GetUserId();
+            if (authUserId is null) return Unauthorized();
+            dto.UserId = authUserId.Value;
+
             var rawAuth = Request.Headers["Authorization"].ToString();
             var token = rawAuth?.Replace("Bearer ", "");
 
@@ -74,6 +93,10 @@ namespace AtomicHabits.Controllers
         [HttpPost("submit-habit-progress")]
         public async Task<IActionResult> PostHabitProgress([FromBody] HabitTrackingDTO trackDto, CancellationToken cancellationToken)
         {
+            var authUserId = User.GetUserId();
+            if (authUserId is null) return Unauthorized();
+            trackDto.UserId = authUserId.Value;
+
             var res = await _habitTracService.PostHabitProgress(trackDto, cancellationToken);
             return StatusCode((int)res.StatusCode, res);
         }
@@ -89,7 +112,7 @@ namespace AtomicHabits.Controllers
             return StatusCode((int)res.StatusCode, res);
         }
 
-       
+
 
     }
 }

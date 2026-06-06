@@ -71,9 +71,20 @@
         public DateTime CreatedAt { get; set; }
     }
 
-    public class RefreshTokenDto     
+    public class RefreshTokenDto
     {
         public string RefreshToken { get; set; }
+    }
+
+    public class VerifyTwoFactorDto
+    {
+        public string TwoFactorToken { get; set; } = string.Empty;
+        public string Code { get; set; } = string.Empty;
+    }
+
+    public class TwoFactorCodeDto
+    {
+        public string Code { get; set; } = string.Empty;
     }
 
     public class UserInfoDto

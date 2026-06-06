@@ -1,31 +1,46 @@
 import './App.css'
 import { CssBaseline, ThemeProvider } from '@mui/material';
-import { baselightTheme } from './theme/DefaultColors';
+import { buildAppTheme } from './theme/DefaultColors';
 import { RouterProvider } from 'react-router';
 import router from './routes/Router'
 import { HabitProvider } from './context/HabitContext';
 import { AuthProvider } from './context/AuthContext';
 import { SnackbarProvider } from './context/SnackbarContext';
 import { HabitTrackingProvider } from './context/HabitTrackingContext';
+import { UserPreferencesProvider, useUserPreferences } from './context/UserPreferencesContext';
+import { TagProvider } from './context/TagContext';
 
-
-function App() {
-  const theme = baselightTheme;
+const ThemedRoutes = () => {
+  const { prefs } = useUserPreferences();
+  const theme = buildAppTheme(prefs?.darkMode ? 'dark' : 'light');
 
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
+      <TagProvider>
+        <HabitProvider>
+          <HabitTrackingProvider>
+            <RouterProvider router={router} />
+          </HabitTrackingProvider>
+        </HabitProvider>
+      </TagProvider>
+    </ThemeProvider>
+  );
+};
+
+function App() {
+  return (
+    <ThemeProvider theme={buildAppTheme('light')}>
+      <CssBaseline />
       <SnackbarProvider>
         <AuthProvider>
-          <HabitProvider>
-            <HabitTrackingProvider>
-              <RouterProvider router={router} />
-            </HabitTrackingProvider>
-          </HabitProvider>
+          <UserPreferencesProvider>
+            <ThemedRoutes />
+          </UserPreferencesProvider>
         </AuthProvider>
       </SnackbarProvider>
     </ThemeProvider>
-  )
+  );
 }
 
 export default App

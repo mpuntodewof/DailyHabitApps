@@ -1,19 +1,21 @@
-﻿using AtomicHabits.Models;
+﻿using AtomicHabits.Data;
+using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
 using AtomicHabits.Repositories;
-using Azure;
-using Paket;
+using System.Globalization;
 using System.Net;
 
 namespace AtomicHabits.Services
 {
     public interface IHabitService
     {
-        Task<ApiResponse> GetHabits(int userId, string token, CancellationToken cancellationToken);
+        Task<ApiResponse> GetHabits(int userId, string token, CancellationToken cancellationToken, bool includeArchived = false);
+        Task<ApiResponse> SearchAsync(int userId, string? search, int? tagId, bool includeArchived, int page, int pageSize, CancellationToken ct);
         Task<ApiResponse> PostHabit(HabitDTO habitDto);
         Task<ApiResponse> UpdateHabit(int habitId, HabitDTO habitDto);
         Task<ApiResponse> DeleteHabit(int habitId);
         Task<ApiResponse> HabitSummary(int userId);
+        Task<ApiResponse> SetArchivedAsync(int habitId, int userId, bool archived, CancellationToken ct);
     }
 
     public class HabitService : IHabitService
@@ -32,7 +34,7 @@ namespace AtomicHabits.Services
             _authService = authService;
         }
 
-        public async Task<ApiResponse> GetHabits(int userId, string token, CancellationToken ct)
+        public async Task<ApiResponse> GetHabits(int userId, string token, CancellationToken ct, bool includeArchived = false)
         {
             try
             {
@@ -45,19 +47,11 @@ namespace AtomicHabits.Services
                     return _response;
                 }
 
-                var habits = await _repo.GetHabitByUserId(userId);
-
-                if (habits == null || !habits.Any())
-                {
-                    _response.IsSuccess = false;
-                    _response.StatusCode = HttpStatusCode.NotFound;
-                    _response.ErrorMessages = new List<string> { "No habits found for this user." };
-                    return _response;
-                }
+                var habits = await _repo.GetHabitByUserId(userId, includeArchived);
 
                 _response.IsSuccess = true;
                 _response.StatusCode = HttpStatusCode.OK;
-                _response.Result = habits;
+                _response.Result = habits ?? new List<Habit>();
                 return _response;
             }
             catch (Exception ex)
@@ -155,8 +149,10 @@ namespace AtomicHabits.Services
             try
             {
                 var today = DateTime.UtcNow.Date;
-                var startOfWeek = today.AddDays(-(int)today.DayOfWeek + 1);
+                var startOfWeek = StartOfIsoWeek(today);
                 var startOfMonth = new DateTime(today.Year, today.Month, 1);
+                var daysElapsedThisWeek = (today - startOfWeek).Days + 1;
+                var daysElapsedThisMonth = today.Day;
 
                 var habits = await _repo.GetActiveHabits(userId, CancellationToken.None);
                 var habitIds = habits.Select(h => h.Id).ToList();
@@ -165,22 +161,21 @@ namespace AtomicHabits.Services
                 var weekTrackings = await _repo.GetWeeklyTrackings(habitIds, startOfWeek, CancellationToken.None);
                 var monthTrackings = await _repo.GetMonthlyTrackings(habitIds, startOfMonth, CancellationToken.None);
 
+                int dailyHabitCount = habits.Count(h => IsDailyHabit(h));
                 int completedToday = todayTrackings.Count(t => t.IsCompleted);
-                int habitsToday = habits.Count;
-                int todayRate = habitsToday == 0 ? 0 : (completedToday * 100 / habitsToday);
+                int todayRate = dailyHabitCount == 0 ? 0 : (completedToday * 100 / dailyHabitCount);
 
-
+                int expectedThisWeek = habits.Sum(h => ExpectedSessions(h, daysElapsedThisWeek, periodLengthDays: 7));
                 int completedThisWeek = weekTrackings.Count(t => t.IsCompleted);
-                int totalSessionsThisWeek = ((today - startOfWeek).Days + 1) * habits.Count;
-                int weeklyRate = totalSessionsThisWeek == 0 ? 0 : (completedThisWeek * 100 / totalSessionsThisWeek);
+                int weeklyRate = expectedThisWeek == 0 ? 0 : Math.Min(100, completedThisWeek * 100 / expectedThisWeek);
 
-
+                int daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
+                int expectedThisMonth = habits.Sum(h => ExpectedSessions(h, daysElapsedThisMonth, periodLengthDays: daysInMonth));
                 int completedThisMonth = monthTrackings.Count(t => t.IsCompleted);
-                int totalSessionsThisMonth = today.Day * habits.Count;
-                int monthlyRate = totalSessionsThisMonth == 0 ? 0 : (completedThisMonth * 100 / totalSessionsThisMonth);
-
+                int monthlyRate = expectedThisMonth == 0 ? 0 : Math.Min(100, completedThisMonth * 100 / expectedThisMonth);
 
                 int healthScore = (todayRate + weeklyRate + monthlyRate) / 3;
+                int habitsToday = dailyHabitCount;
 
                 _response.IsSuccess = true;
                 _response.StatusCode = HttpStatusCode.OK;
@@ -219,6 +214,97 @@ namespace AtomicHabits.Services
                 };
                 return _response;
             }
+        }
+
+        public async Task<ApiResponse> SearchAsync(int userId, string? search, int? tagId, bool includeArchived, int page, int pageSize, CancellationToken ct)
+        {
+            try
+            {
+                var (items, total) = await _repo.SearchAsync(userId, search, tagId, includeArchived, page, pageSize, ct);
+
+                _response.IsSuccess = true;
+                _response.StatusCode = HttpStatusCode.OK;
+                _response.Result = new
+                {
+                    items,
+                    total,
+                    page = page < 1 ? 1 : page,
+                    pageSize = pageSize < 1 ? 20 : (pageSize > 100 ? 100 : pageSize)
+                };
+                return _response;
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "[HabitService.SearchAsync] Error");
+                _response.IsSuccess = false;
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.ErrorMessages = new List<string> { "Search habits error: " + ex.Message };
+                return _response;
+            }
+        }
+
+        public async Task<ApiResponse> SetArchivedAsync(int habitId, int userId, bool archived, CancellationToken ct)
+        {
+            try
+            {
+                var ok = await _repo.SetArchivedAsync(habitId, userId, archived, ct);
+                if (!ok)
+                {
+                    _response.IsSuccess = false;
+                    _response.StatusCode = HttpStatusCode.NotFound;
+                    _response.ErrorMessages = new List<string> { "Habit not found or doesn't belong to user" };
+                    return _response;
+                }
+
+                _response.IsSuccess = true;
+                _response.StatusCode = HttpStatusCode.OK;
+                _response.Result = new { habitId, archived };
+                return _response;
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "[HabitService.SetArchivedAsync] Error");
+                _response.IsSuccess = false;
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.ErrorMessages = new List<string> { "Set archived error: " + ex.Message };
+                return _response;
+            }
+        }
+
+        private static DateTime StartOfIsoWeek(DateTime today)
+        {
+            int diff = (7 + (int)today.DayOfWeek - (int)DayOfWeek.Monday) % 7;
+            return today.AddDays(-diff).Date;
+        }
+
+        private static bool IsDailyHabit(Habit h)
+        {
+            var f = (h.GoalFrequency ?? "").Trim().ToLowerInvariant();
+            return f.Contains("day") || string.IsNullOrEmpty(f);
+        }
+
+        // Expected completions for a habit within a window of `daysElapsed` days
+        // out of a `periodLengthDays`-day period (week=7, month=daysInMonth, etc.).
+        private static int ExpectedSessions(Habit h, int daysElapsed, int periodLengthDays)
+        {
+            if (daysElapsed <= 0 || periodLengthDays <= 0) return 0;
+
+            var f = (h.GoalFrequency ?? "").Trim().ToLowerInvariant();
+            if (f.Contains("day")) return daysElapsed;
+            if (f.Contains("week"))
+            {
+                double weeksElapsed = (double)daysElapsed / 7.0;
+                return (int)Math.Ceiling(weeksElapsed);
+            }
+            if (f.Contains("month"))
+            {
+                return daysElapsed >= 1 ? 1 : 0;
+            }
+            if (f.Contains("year"))
+            {
+                return 0;
+            }
+            return daysElapsed;
         }
     }
 }

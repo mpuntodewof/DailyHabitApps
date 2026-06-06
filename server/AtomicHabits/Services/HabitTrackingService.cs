@@ -1,6 +1,8 @@
-﻿using AtomicHabits.Models;
+﻿using AtomicHabits.Data;
+using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
 using AtomicHabits.Repositories;
+using AtomicHabits.Utils;
 using Microsoft.AspNetCore.Mvc;
 using System.Globalization;
 using System.Net;
@@ -145,68 +147,15 @@ namespace AtomicHabits.Services
                     ? Math.Min(100.0, (daysCompletedThisMonth / monthlyGoal) * 100.0)
                     : 0.0;
 
-                // Convert completedTrackings to sorted list of distinct DateTime (all dates)
                 var sortedDates = completedTrackings.OrderBy(d => d).ToList();
 
                 #endregion
 
                 #region Streak Computation Section
 
-                // Longest streak computation
-                int longestStreak = 0;
-                int currentRun = 0;
-                DateTime? prevDate = null;
-                foreach (var d in sortedDates)
-                {
-                    if (prevDate == null)
-                    {
-                        currentRun = 1;
-                    }
-                    else
-                    {
-                        var diff = (d - prevDate.Value).TotalDays;
-                        if (diff == 1) currentRun++;
-                        else currentRun = 1;
-                    }
-
-                    if (currentRun > longestStreak) longestStreak = currentRun;
-                    prevDate = d;
-                }
-
-                // Current streak now (consecutive ending at today or yesterday)
-                int currentStreak = 0;
-                // get distinct completed dates descending
-                var descending = sortedDates.OrderByDescending(d => d).ToList();
-                var todayDate = DateTime.UtcNow.Date;
-
-                if (descending.Count > 0)
-                {
-                    // if last completed date is today -> start counting from today
-                    DateTime expected = descending[0];
-                    if ((todayDate - expected).TotalDays == 0)
-                    {
-                        currentStreak = 1;
-                        for (int i = 1; i < descending.Count; i++)
-                        {
-                            if ((descending[i - 1] - descending[i]).TotalDays == 1) currentStreak++;
-                            else break;
-                        }
-                    }
-                    // else if last completed date is yesterday -> continue streak that ends yesterday
-                    else if ((todayDate - expected).TotalDays == 1)
-                    {
-                        currentStreak = 1;
-                        for (int i = 1; i < descending.Count; i++)
-                        {
-                            if ((descending[i - 1] - descending[i]).TotalDays == 1) currentStreak++;
-                            else break;
-                        }
-                    }
-                    else
-                    {
-                        currentStreak = 0;
-                    }
-                }
+                var streak = StreakCalculator.Compute(sortedDates);
+                var currentStreak = streak.CurrentStreak;
+                var longestStreak = streak.LongestStreak;
 
                 #endregion
 

@@ -1,7 +1,8 @@
-﻿using AtomicHabits.Models;
+﻿using AtomicHabits.Data;
+using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
 using AtomicHabits.Repositories;
-using Azure;
+using AtomicHabits.Utils;
 using System.Net;
 
 namespace AtomicHabits.Services
@@ -9,6 +10,7 @@ namespace AtomicHabits.Services
     public interface IDashboardService
     {
         Task<ApiResponse> GetCardOverviews(int userId, CancellationToken ct);
+        Task<ApiResponse> GetHeatmap(int userId, int days, CancellationToken ct);
     }
 
     public class DashboardService : IDashboardService
@@ -49,32 +51,16 @@ namespace AtomicHabits.Services
 
                 #region Streak Calculation
 
-                var dateStreaks = getTrackings.Where(t => t.IsCompleted).Select(t => t.TrackingDate!.Value.Date).Distinct().OrderByDescending(d => d).ToList();
+                var completedDates = getTrackings
+                    .Where(t => t.IsCompleted && t.TrackingDate.HasValue)
+                    .Select(t => t.TrackingDate!.Value.Date);
 
-                int currentStreak = 0, longestStreak = 0, temp = 1;
-                for(int i = 1; i < dateStreaks.Count; i++)
-                {
-                    if ((dateStreaks[i] - dateStreaks[i - 1]).TotalDays == 1)
-                    {
-                        temp++;
-                    }
-                    else
-                    {
-                        longestStreak = Math.Max(longestStreak, temp);
-                        temp = 1;
-                    }
-                }
-
-                longestStreak = Math.Max(longestStreak, temp);
-                if (dateStreaks.LastOrDefault() == today || dateStreaks.LastOrDefault() == today.AddDays(-1))
-                {
-                    currentStreak = temp;
-                }
+                var streak = StreakCalculator.Compute(completedDates, today);
 
                 var streakCard = new StreakCardDto
                 {
-                    CurrentStreak = currentStreak,
-                    LongestStreak = longestStreak
+                    CurrentStreak = streak.CurrentStreak,
+                    LongestStreak = streak.LongestStreak
                 };
 
                 #endregion
@@ -137,7 +123,65 @@ namespace AtomicHabits.Services
             }
         }
 
+        public async Task<ApiResponse> GetHeatmap(int userId, int days, CancellationToken ct)
+        {
+            var response = new ApiResponse();
 
+            try
+            {
+                if (days <= 0) days = 90;
+                if (days > 366) days = 366;
 
+                var endDate = DateTime.UtcNow.Date;
+                var startDate = endDate.AddDays(-(days - 1));
+
+                var counts = await _repo.GetDailyCompletionCounts(userId, startDate, endDate, ct);
+
+                // Compute intensity buckets relative to the user's own max in the window.
+                int maxCount = counts.Count == 0 ? 0 : counts.Values.Max();
+
+                var cells = new List<object>(days);
+                for (var d = startDate; d <= endDate; d = d.AddDays(1))
+                {
+                    counts.TryGetValue(d, out var count);
+                    int intensity = ComputeIntensity(count, maxCount);
+                    cells.Add(new
+                    {
+                        date = d.ToString("yyyy-MM-dd"),
+                        count,
+                        intensity
+                    });
+                }
+
+                response.IsSuccess = true;
+                response.StatusCode = HttpStatusCode.OK;
+                response.Result = new
+                {
+                    startDate = startDate.ToString("yyyy-MM-dd"),
+                    endDate = endDate.ToString("yyyy-MM-dd"),
+                    days,
+                    maxCount,
+                    cells
+                };
+                return response;
+            }
+            catch (Exception ex)
+            {
+                response.IsSuccess = false;
+                response.StatusCode = HttpStatusCode.InternalServerError;
+                response.ErrorMessages = new List<string> { "Get heatmap error, message: " + ex.Message };
+                return response;
+            }
+        }
+
+        private static int ComputeIntensity(int count, int max)
+        {
+            if (count <= 0 || max <= 0) return 0;
+            double ratio = (double)count / max;
+            if (ratio <= 0.25) return 1;
+            if (ratio <= 0.50) return 2;
+            if (ratio <= 0.75) return 3;
+            return 4;
+        }
     }
 }

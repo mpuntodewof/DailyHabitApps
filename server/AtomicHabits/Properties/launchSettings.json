@@ -1,11 +1,11 @@
 {
+  "_comment": "Secrets (JWT_SECRET, SMTP_USERNAME, SMTP_PASSWORD) are NOT stored here. Use 'dotnet user-secrets' for per-developer values, or environment variables for CI / production. See README and ARCHITECTURE_AND_ROADMAP.md for the layered config strategy.",
   "profiles": {
     "http": {
       "commandName": "Project",
       "launchUrl": "swagger",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "JWT_SECRET": "qZRFgZrbsNPsBYfxQNcRbGcZWq/Ft4RmOqiLfyJ13JlMl1/xtN45XgPnmDeT/BophrZhOvpbAf5t80xBOTRGRQ==",
         "JWT_ISSUER": "DailyHabitTracker",
         "JWT_AUDIENCE": "DailyHabitTracker.Client"
       },
@@ -17,7 +17,6 @@
       "launchUrl": "swagger",
       "environmentVariables": {
         "ASPNETCORE_ENVIRONMENT": "Development",
-        "JWT_SECRET": "qZRFgZrbsNPsBYfxQNcRbGcZWq/Ft4RmOqiLfyJ13JlMl1/xtN45XgPnmDeT/BophrZhOvpbAf5t80xBOTRGRQ==",
         "JWT_ISSUER": "DailyHabitTracker",
         "JWT_AUDIENCE": "DailyHabitTracker.Client"
       },

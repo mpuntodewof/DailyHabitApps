@@ -11,11 +11,12 @@ import {
 } from '@mui/material';
 import {
   IconLayoutDashboard,
-  IconTable,
   IconCalendarWeek,
   IconSettings,
-  IconChartHistogram
+  IconChartHistogram,
+  IconShieldCog,
 } from '@tabler/icons-react';
+import { useAuth } from '../../context/AuthContext';
 
 const menuItems = [
   {
@@ -33,26 +34,24 @@ const menuItems = [
     icon: IconChartHistogram,
     href: '/stats'
   },
-  // {
-  //   title: 'Tables',
-  //   icon: IconTable,
-  //   href: '/tables'
-  // },
-  // {
-  //   title: 'Profile',
-  //   icon: IconUserCircle,
-  //   href: '/profile'
-  // },
   {
     title: 'Settings',
     icon: IconSettings,
     href: '/settings'
+  },
+  {
+    title: 'Admin · Users',
+    icon: IconShieldCog,
+    href: '/admin/users',
+    permission: 'Users.Read'
   }
 ];
 
 const SidebarItems = () => {
   const theme = useTheme();
   const { pathname } = useLocation();
+  const { hasPermission } = useAuth();
+  const visibleItems = menuItems.filter((item) => !item.permission || hasPermission(item.permission));
 
   return (
     <Box sx={{ pt: 2 }}>
@@ -75,7 +74,7 @@ const SidebarItems = () => {
           </ListSubheader>
         }
       >
-        {menuItems.map((item, index) => {
+        {visibleItems.map((item, index) => {
           const Icon = item.icon;
           const isSelected = pathname === item.href;
 

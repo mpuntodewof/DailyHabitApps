@@ -1,0 +1,74 @@
+services:
+  db:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    container_name: atomic-habits-db
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?Set MSSQL_SA_PASSWORD in .env or your shell}
+      MSSQL_PID: Developer
+    ports:
+      - "1433:1433"
+    volumes:
+      - db_data:/var/opt/mssql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - /opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P "$$MSSQL_SA_PASSWORD" -C -Q "SELECT 1" || exit 1
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 20s
+    networks:
+      - atomic-habits
+
+  api:
+    build:
+      context: ./server/AtomicHabits
+      dockerfile: Dockerfile
+    container_name: atomic-habits-api
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      ASPNETCORE_URLS: http://0.0.0.0:8080
+
+      ConnectionStrings__DbConn: "Server=db,1433;Database=AtomicHabitsDb;User Id=sa;Password=${MSSQL_SA_PASSWORD};TrustServerCertificate=True;Encrypt=True;"
+
+      JWT_SECRET: ${JWT_SECRET:?Set JWT_SECRET in .env or your shell}
+      JWT_ISSUER: ${JWT_ISSUER:-DailyHabitTracker}
+      JWT_AUDIENCE: ${JWT_AUDIENCE:-DailyHabitTracker.Client}
+
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+
+      Cors__AllowedOrigins__0: http://localhost:5173
+      Cors__AllowedOrigins__1: http://localhost:8080
+
+      App__WebBaseUrl: ${APP_WEB_BASE_URL:-http://localhost:5173}
+    ports:
+      - "5198:8080"
+    networks:
+      - atomic-habits
+
+  web:
+    build:
+      context: ./client-ui
+      dockerfile: Dockerfile
+      args:
+        # Browsers talk directly to the host-mapped API port, not the in-network DNS name.
+        VITE_API_URL: ${VITE_API_URL:-http://localhost:5198/api}
+    container_name: atomic-habits-web
+    depends_on:
+      - api
+    ports:
+      - "5173:80"
+    networks:
+      - atomic-habits
+
+volumes:
+  db_data:
+
+networks:
+  atomic-habits:
+    driver: bridge

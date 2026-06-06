@@ -1,7 +1,11 @@
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import api from '../api/axiosInstance';
-import { getCookie, deleteCookie } from "../utils/cookieUtils";
-import { isTokenExpired, refreshAccessToken, storeTokens, buildUserProfile } from "../utils/tokenUtils";
+import {
+  buildUserProfile,
+  clearAccessToken,
+  refreshAccessToken,
+  setAccessToken,
+} from "../utils/tokenUtils";
 
 const AuthContext = createContext(undefined);
 
@@ -13,62 +17,101 @@ export const useAuth = () => {
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
+  const [permissions, setPermissions] = useState([]);
+  const [roles, setRoles] = useState([]);
   const [initializing, setInitializing] = useState(true);
 
   const clearSessions = useCallback(() => {
-    deleteCookie('accessToken');
-    deleteCookie('refreshToken');
+    clearAccessToken();
     setUser(null);
+    setPermissions([]);
+    setRoles([]);
+  }, []);
+
+  const fetchMe = useCallback(async () => {
+    try {
+      const res = await api.get('/Auth/me');
+      const me = res.data?.result;
+      if (me) {
+        setPermissions(me.permissions || []);
+        setRoles(me.roles || []);
+      }
+    } catch (err) {
+      console.warn('Failed to load /Auth/me:', err?.message);
+    }
   }, []);
 
   const restoreSession = useCallback(async () => {
-    const accessToken = getCookie("accessToken");
-    const refreshToken = getCookie("refreshToken");
-
-    if (accessToken && !isTokenExpired(accessToken)) {
-      setUser(prev => prev ?? buildUserProfile(accessToken));
+    const newAccessToken = await refreshAccessToken();
+    if (newAccessToken) {
+      setUser(buildUserProfile(newAccessToken));
+      await fetchMe();
       return;
     }
-
-    if (refreshToken) {
-      const newAccessToken = await refreshAccessToken();
-      if (newAccessToken) {
-        setUser(prev => prev ?? buildUserProfile(newAccessToken));
-        return;
-      }
-    }
-
     clearSessions();
-  }, [clearSessions]);
+  }, [clearSessions, fetchMe]);
 
   useEffect(() => {
     restoreSession().finally(() => setInitializing(false));
   }, [restoreSession]);
 
-  const login = React.useCallback(async (email, password) => {
+  const login = useCallback(async (email, password) => {
     try {
       const res = await api.post('/Auth/login', { email, password });
-      const accessToken = res.data.result.accessToken;
-      const refreshToken = res.data.result.refreshToken;
+      const result = res.data?.result;
 
-      if (!accessToken || !refreshToken) {
-        throw new Error("Login response missing tokens");
+      if (result?.requiresTwoFactor) {
+        return { requiresTwoFactor: true, twoFactorToken: result.twoFactorToken };
       }
 
-      storeTokens(accessToken, refreshToken);
+      const accessToken = result?.accessToken;
+      if (!accessToken) {
+        throw new Error("Login response missing access token");
+      }
+
+      setAccessToken(accessToken);
       const profile = buildUserProfile(accessToken);
       setUser(profile);
+      await fetchMe();
 
-      return profile;
+      return { user: profile };
     } catch (error) {
       console.error('Authentication failed: ' + error);
       throw error;
     }
-  }, []);
+  }, [fetchMe]);
+
+  const verifyTwoFactor = useCallback(async (twoFactorToken, code) => {
+    const res = await api.post('/Auth/verify-2fa', { twoFactorToken, code });
+    const accessToken = res.data?.result?.accessToken;
+    if (!accessToken) {
+      throw new Error("2FA verification did not return tokens");
+    }
+    setAccessToken(accessToken);
+    const profile = buildUserProfile(accessToken);
+    setUser(profile);
+    await fetchMe();
+    return profile;
+  }, [fetchMe]);
+
+  const hasPermission = useCallback(
+    (code) => Array.isArray(permissions) && permissions.includes(code),
+    [permissions]
+  );
+
+  const hasRole = useCallback(
+    (roleName) => Array.isArray(roles) && roles.includes(roleName),
+    [roles]
+  );
 
   const register = async (payload) => {
     try {
       const res = await api.post('/Auth/register', payload);
+      const accessToken = res.data?.result?.accessToken;
+      if (accessToken) {
+        setAccessToken(accessToken);
+        setUser(buildUserProfile(accessToken));
+      }
       return res.data;
     } catch (error) {
       console.error('registration failed: ' + error);
@@ -85,23 +128,47 @@ export const AuthProvider = ({ children }) => {
     }
   };
 
-  const logout = () => {
-    clearSessions();
+  const confirmPasswordReset = async ({ email, token, password, confirmPassword }) => {
+    try {
+      await api.post('/Auth/reset-password', {
+        email,
+        token,
+        password,
+        confirmPassword,
+      });
+    } catch (error) {
+      console.error('Confirm password reset failed: ' + error);
+      throw error;
+    }
   };
+
+  const logout = useCallback(async () => {
+    try {
+      await api.post('/Auth/logout');
+    } catch (err) {
+      console.warn('Logout request failed; clearing session anyway:', err?.message);
+    } finally {
+      clearSessions();
+    }
+  }, [clearSessions]);
 
   const value = useMemo(
     () => ({
       user,
+      permissions,
+      roles,
+      hasPermission,
+      hasRole,
       initializing,
       login,
+      verifyTwoFactor,
       register,
       requestPasswordReset,
+      confirmPasswordReset,
       logout
     }),
-    [user, initializing, login]
+    [user, permissions, roles, hasPermission, hasRole, initializing, login, verifyTwoFactor, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
 };
-
-

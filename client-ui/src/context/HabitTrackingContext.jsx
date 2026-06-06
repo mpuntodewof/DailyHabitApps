@@ -1,7 +1,6 @@
 import React, { useState } from 'react'
 import { useCallback } from 'react';
-import { getCookie } from '../utils/cookieUtils';
-import { isTokenExpired } from '../utils/tokenUtils';
+import { getAccessToken } from '../utils/tokenUtils';
 import api from '../api/axiosInstance';
 
 const HabitTrackingContext = React.createContext();
@@ -16,10 +15,7 @@ export const HabitTrackingProvider = ({ children }) => {
 
     const getHabitTrackingDates = useCallback(async (habitId, userId) => {
         setLoading(true);
-        const accessToken = getCookie('accessToken');
-        const isAuthenticated = accessToken && !isTokenExpired(accessToken);
-        if (!isAuthenticated) {
-            console.warn('Access token missing or expired. Skipping getHabitTrackingDates.');
+        if (!getAccessToken()) {
             setLoading(false);
             return;
         }
@@ -38,10 +34,7 @@ export const HabitTrackingProvider = ({ children }) => {
 
     const getHabitStats = useCallback(async (habitId, userId) => {
         setLoading(true);
-        const accessToken = getCookie('accessToken');
-        const isAuthenticated = accessToken && !isTokenExpired(accessToken);
-        if (!isAuthenticated) {
-            console.warn('Access token missing or expired. Skipping getHabitTrackingDates.');
+        if (!getAccessToken()) {
             setLoading(false);
             return;
         }
@@ -59,16 +52,13 @@ export const HabitTrackingProvider = ({ children }) => {
 
     const getHabitOverview = useCallback(async (userId) => {
         setLoading(true);
-        const accessToken = getCookie('accessToken');
-        const isAuthenticated = accessToken && !isTokenExpired(accessToken);
-        if (!isAuthenticated) {
-            console.warn('Access token missing or expired. Skipping getHabitOverview.');
+        if (!getAccessToken()) {
             setLoading(false);
             return;
         }
 
         try {
-            const res = await api.get(`/Dashboard/habit-card-overviews?userId=${userId}`); 
+            const res = await api.get(`/Dashboard/habit-card-overviews?userId=${userId}`);
             setHabitOverview(res.data || {});
             return res.data;
         } catch (err) {
@@ -102,10 +92,7 @@ export const HabitTrackingProvider = ({ children }) => {
     // #region Distribution Methods
     const getWeeklyDistribution = async (payload) => {
         setLoading(true);
-        const accessToken = getCookie('accessToken');
-        const isAuthenticated = accessToken && !isTokenExpired(accessToken);
-        if (!isAuthenticated) {
-            console.warn('Access token missing or expired. Skipping getHabitTrackingDates.');
+        if (!getAccessToken()) {
             setLoading(false);
             return;
         }
@@ -122,10 +109,7 @@ export const HabitTrackingProvider = ({ children }) => {
 
     const getMonthlyDistribution = async (payload) => {
         setLoading(true);
-        const accessToken = getCookie('accessToken');
-        const isAuthenticated = accessToken && !isTokenExpired(accessToken);
-        if (!isAuthenticated) {
-            console.warn('Access token missing or expired. Skipping getHabitTrackingDates.');
+        if (!getAccessToken()) {
             setLoading(false);
             return;
         }
@@ -142,10 +126,7 @@ export const HabitTrackingProvider = ({ children }) => {
 
     const getYearlyDistribution = async (payload) => {
         setLoading(true);
-        const accessToken = getCookie('accessToken');
-        const isAuthenticated = accessToken && !isTokenExpired(accessToken);
-        if (!isAuthenticated) {
-            console.warn('Access token missing or expired. Skipping getHabitTrackingDates.');
+        if (!getAccessToken()) {
             setLoading(false);
             return;
         }

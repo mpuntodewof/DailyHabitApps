@@ -1,6 +1,4 @@
-﻿using Microsoft.Identity.Client;
-
-namespace AtomicHabits.Models
+﻿namespace AtomicHabits.Models
 {
     public class User
     {
@@ -14,9 +12,6 @@ namespace AtomicHabits.Models
         public DateTime? CreatedAt { get; set; }
         public string? PasswordResetToken { get; set; }
         public DateTime? ResetTokenExpiry { get; set; }
-        public string? RefreshToken { get; set; }
-        public DateTime? RefreshTokenExpiry { get; set; }
-        public bool? IsRevoked { get; set; }
 
         public ICollection<UserRole>? UserRoles { get; set; }
         public ICollection<Habit>? Habits { get; set; }

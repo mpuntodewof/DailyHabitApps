@@ -1,4 +1,5 @@
 ﻿using AtomicHabits.Services;
+using AtomicHabits.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
@@ -19,7 +20,21 @@ namespace AtomicHabits.Controllers
         [HttpGet("habit-card-overviews")]
         public async Task<IActionResult> GetCardOverview(int userId, CancellationToken ct)
         {
-            var res = await _service.GetCardOverviews(userId, ct);
+            var authUserId = User.GetUserId();
+            if (authUserId is null) return Unauthorized();
+
+            var res = await _service.GetCardOverviews(authUserId.Value, ct);
+            return StatusCode((int)res.StatusCode, res);
+        }
+
+        [Authorize]
+        [HttpGet("heatmap")]
+        public async Task<IActionResult> GetHeatmap([FromQuery] int days, CancellationToken ct)
+        {
+            var authUserId = User.GetUserId();
+            if (authUserId is null) return Unauthorized();
+
+            var res = await _service.GetHeatmap(authUserId.Value, days, ct);
             return StatusCode((int)res.StatusCode, res);
         }
     }

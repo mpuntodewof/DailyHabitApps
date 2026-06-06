@@ -3,142 +3,177 @@
 A full-stack habit tracking application that helps users build consistency through daily habit tracking, calendar-based logging, and visual analytics.
 Built with React (Material UI) on the frontend and ASP.NET Core Web API (.NET 8) on the backend.
 
+> See [ARCHITECTURE_AND_ROADMAP.md](ARCHITECTURE_AND_ROADMAP.md) for the canonical architecture, fix log, and future roadmap.
+
 ## 🖥️ Tech Stack
 ### 🖼️ Frontend (Client UI)
 | Category           | Technology                |
 | ------------------ | ------------------------- |
-| Language           | TypeScript / JavaScript   |
-| Framework          | React                     |
-| UI Library         | Material UI (MUI)         |
+| Language           | JavaScript (JSX)          |
+| Framework          | React 19                  |
+| UI Library         | Material UI (MUI 7)       |
 | Charting           | ApexCharts                |
-| Routing            | React Router              |
-| State Management   | React Hooks               |
-| Styling            | CSS, MUI Theme            |
+| Routing            | React Router 7            |
+| State Management   | React Context + Hooks     |
+| Auth Storage       | Access token in memory; refresh token in HttpOnly cookie |
+| Build Tool         | Vite                      |
 | Environment Config | `.env`, `.env.production` |
-| Build Tool         | Vite / CRA                |
 
 ### 🧠 Backend (Server API)
-| Category         | Technology                 |
-| ---------------- | -------------------------- |
-| Language         | C#                         |
-| Framework        | ASP.NET Core Web API       |
-| Runtime          | .NET 8                     |
-| Architecture     | Controller–Service–UseCase |
-| API Style        | REST                       |
-| Validation       | Custom Validators          |
-| Mapping          | DTO ↔ Domain Mappers       |
-| Configuration    | `appsettings.json`         |
-| Containerization | Docker                     |
-| CI/CD            | Jenkins                    |
+| Category         | Technology                                  |
+| ---------------- | ------------------------------------------- |
+| Language         | C#                                          |
+| Framework        | ASP.NET Core Web API                        |
+| Runtime          | .NET 8                                      |
+| Architecture     | Controller → Service → Repository           |
+| API Style        | REST (uniform `ApiResponse` envelope)       |
+| Auth             | JWT Bearer (1 h) + opaque refresh token (7 d, SHA-256 hashed, HttpOnly cookie) |
+| Validation       | FluentValidation                            |
+| Persistence      | Entity Framework Core 9 (SQL Server)        |
+| Configuration    | `appsettings.json` + `IOptions<>` binding   |
+| Cross-cutting    | Global exception middleware                 |
+| Containerization | Docker (planned)                            |
+| CI/CD            | Jenkins / GitHub Actions (planned)          |
 
-### 🖥 Client (Frontend)
-	client-ui/
-	├── public/
-	├── src/
-	│   ├── assets/           # Images, icons, static assets
-	│   ├── components/       # Reusable UI components
-	│   ├── layouts/          # App layout wrappers
-	│   ├── routes/           # Public & protected routes
-	│   ├── services/         # API service calls
-	│   ├── utils/            # Helper functions
-	│   ├── views/
-	│   │   ├── dashboard/    # Dashboard pages & widgets
-	│   │   ├── habit/        # Habit management & tracking
-	│   │   ├── stats/        # Statistics & analytics
-	│   │   └── settings/     # User & app settings
-	│   ├── App.tsx
-	│   └── main.tsx
-	├── .env
-	├── .env.production
-	└── package.json
-	
-### 🧠 Backend (Daily Habit Tracker API)
-	server/
-	├── Controllers/              # HTTP API controllers
-	│   ├── AuthController.cs     # Authentication endpoints
-	│   ├── HabitController.cs    # Habit CRUD & tracking endpoints
-	│   └── StatsController.cs    # Statistics & analytics endpoints
-	│
-	├── DTOs/                     # Request / response data contracts
-	│   ├── Auth/
-	│   ├── Habit/
-	│   └── Stats/
-	│
-	├── Models/                   # Domain & data models
-	│   ├── User.cs
-	│   ├── Habit.cs
-	│   ├── HabitLog.cs
-	│   └── HabitSchedule.cs
-	│
-	├── Services/                 # Business logic layer
-	│   ├── AuthService.cs
-	│   ├── HabitService.cs
-	│   └── StatsService.cs
-	│
-	├── Repositories/             # Data access layer
-	│   ├── Interfaces/
-	│   └── Implementations/
-	│
-	├── Validators/               # Input & request validation
-	│   ├── HabitValidator.cs
-	│   └── AuthValidator.cs
-	│
-	├── Mappers/                  # DTO ↔ Domain model mapping
-	│   └── HabitMapper.cs
-	│
-	├── Utils/                    # Helper & utility classes
-	│   ├── DateTimeHelper.cs
-	│   └── ResponseHelper.cs
-	│
-	├── Data/                     # Database context & migrations
-	│   ├── ApplicationDbContext.cs
-	│   └── Migrations/
-	│
-	├── Config/                   # Application & environment configuration
-	│   ├── JwtOptions.cs
-	│   └── AppSettings.cs
-	│
-	├── Program.cs                # Application entry point
-	├── Startup.cs                # Middleware, DI, routing
-	├── appsettings.json          # Base configuration
-	├── appsettings.Development.json
-	├── Dockerfile                # Container build definition
-	└── README.md
+## 📁 Project Structure
 
+### 🖥 Frontend (`client-ui/`)
+```
+client-ui/
+├── public/
+├── src/
+│   ├── api/                # axios instance with interceptors
+│   ├── assets/             # images, icons, static assets
+│   ├── components/         # reusable UI components, ProtectedRoute, PublicRoute
+│   ├── context/            # AuthContext, HabitContext, HabitTrackingContext, SnackbarContext
+│   ├── layouts/            # FullLayout, BlankLayout, header, sidebar, footer
+│   ├── routes/             # Router (createBrowserRouter, lazy + Suspense)
+│   ├── theme/              # MUI theme overrides
+│   ├── utils/              # tokenUtils (in-memory access token store), cookieUtils
+│   ├── views/
+│   │   ├── authentication/ # Login, Register, ForgotPassword, Error
+│   │   ├── dashboard/      # KPIs, charts, heatmap
+│   │   ├── habit/          # CRUD, tracking dialog, calendar
+│   │   ├── stats/          # Statistics & analytics
+│   │   └── settings/       # User & app settings
+│   ├── App.jsx
+│   └── main.jsx
+├── .env
+├── .env.production
+└── package.json
+```
+
+### 🧠 Backend (`server/AtomicHabits/`)
+```
+server/AtomicHabits/
+├── Config/                 # JwtOptions, AppOptions, CorsOptions
+├── Controllers/            # AuthController, HabitController, HabitTrackingController, DashboardController
+├── Data/                   # AppDbContext, AppDbContextFactory, ConnectionFactory, DbSeeder
+├── Middleware/             # GlobalExceptionMiddleware
+├── Migrations/             # EF Core migrations
+├── Models/                 # User, Role, Permission, Habit, HabitTracking, Streak, RefreshToken, …
+│   └── DTO/                # request / response contracts
+├── Repositories/           # UserRepositories, HabitRepositories, HabitTrackingRepositories, StreakRepositories, DashboardRepositories
+├── Services/               # AuthService, TokenService, HabitService, HabitTrackingService, DashboardService, EmailService
+├── Utils/                  # StreakCalculator, ClaimsPrincipalExtensions
+├── Validators/             # FluentValidation validators (Auth, Habit)
+├── Program.cs              # composition root: DI, options, JWT, CORS, Swagger, middleware pipeline
+├── appsettings.json
+└── appsettings.Development.json
+```
+
+## 🔐 Configuration
+
+The backend reads configuration from `appsettings.json` (overridable via environment variables).
+
+```json
+{
+  "ConnectionStrings": { "DbConn": "..." },
+  "Jwt": {
+    "Issuer": "DailyHabitTracker",
+    "Audience": "DailyHabitTracker",
+    "AccessTokenMinutes": 60,
+    "RefreshTokenDays": 7
+  },
+  "App": {
+    "WebBaseUrl": "http://localhost:5173",
+    "ResetPasswordPath": "/auth/reset-password"
+  },
+  "Cors": {
+    "AllowedOrigins": [ "http://localhost:5173", "https://localhost:5173" ]
+  }
+}
+```
+
+Required environment variables:
+
+- `JWT_SECRET` — symmetric signing key (mandatory)
+- `JWT_ISSUER`, `JWT_AUDIENCE` — optional, override `Jwt:Issuer` / `Jwt:Audience`
+
+## 🚀 Getting started
+
+### Prerequisites
+- .NET 8 SDK
+- Node.js 20+
+- SQL Server (local or container)
+
+### Backend
+```bash
+cd server/AtomicHabits
+export JWT_SECRET="<a-long-random-string>"
+dotnet ef database update
+dotnet run
+```
+
+### Frontend
+```bash
+cd client-ui
+npm install
+npm run dev
+```
 
 ## ✨ Key Features
+
 ### 🔐 Authentication & Access Control
-  - User registration and login
-  - Secure authenticated routes
-  - Public and protected page separation
-  - Environment-based configuration for different deployments
+- User registration and login (BCrypt password hashing)
+- Access token in JS memory; refresh token in `HttpOnly; Secure; SameSite=Strict` cookie
+- Refresh-token rotation with revocation tracked in DB
+- Forgot / reset password via email link
+- RBAC tables in place (Users / Roles / Permissions / Modules) — enforcement is on the roadmap
 
 ### 📊 Dashboard
-  - Overview dashboard with summary cards (KPIs)
-  - Habit completion metrics
-  - Visual analytics using interactive charts
-  - Graceful error handling and fallback UI
+- Today / streak / weekly cards
+- Monthly completion-rate trend
+- Heatmap calendar (currently static — endpoint on roadmap)
 
 ### ✅ Habit Management
-  - Clear visual representation of active habits
-  - Habit action menus and dialogs
-  - Configure habit schedules and preferred times
-  - Create, update, and delete habits
+- Create / update / delete habits
+- Goal config: value, unit, frequency (daily / weekly / monthly / yearly)
+- Habit reminders schema in place (controller / scheduler on roadmap)
 
 ### 📅 Habit Tracking
-  - Calendar-based habit tracking
-  - Daily habit completion logging
-  - Interactive dialogs for marking habit progress
-  - Visual feedback for completed and missed habits
+- Per-day tracking with optional notes and time spent
+- Calendar-based visualization
+- Daily-submit endpoint with duplicate-day protection
 
 ### 📈 Statistics & Analytics
-  - Data optimized for chart-based insights
-  - Time-based statistics (daily/monthly)
-  - Distribution and trend visualization
-  - Habit completion rate analysis
+- Habit summary (today / weekly / monthly / health score) — per-habit `GoalFrequency`-aware
+- Per-habit stats: current/longest streak, completion rate, monthly goal
+- Distribution charts: weekly, monthly, yearly
 
 ### 🎨 UI & UX
-  - Error pages (404, fallback states)
-  - Reusable and modular UI components
-  - Material UI design system
-  - Responsive dashboard layout
+- Material UI design system
+- Lazy-loaded routes with Suspense fallback
+- Snackbar notifications
+- Responsive dashboard layout
+- Error pages (404, fallback states)
+
+## 🗺️ Roadmap
+
+See [ARCHITECTURE_AND_ROADMAP.md](ARCHITECTURE_AND_ROADMAP.md) for the full roadmap — the next batch of work focuses on:
+- Reminder scheduler (background service)
+- Real RBAC enforcement
+- 2FA (TOTP)
+- Settings persistence (`UserPreferences`)
+- Heatmap endpoint
+- PWA + push notifications

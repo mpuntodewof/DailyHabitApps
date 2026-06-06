@@ -1,6 +1,5 @@
 import axios from "axios";
-import { getCookie } from "../utils/cookieUtils";
-import { isTokenExpired, refreshAccessToken } from "../utils/tokenUtils";
+import { getAccessToken, isTokenExpired, refreshAccessToken } from "../utils/tokenUtils";
 
 const baseURL = import.meta.env.VITE_API_URL || "/api";
 
@@ -8,6 +7,7 @@ const ANONYMOUS_ENDPOINTS = [
   "/Auth/login",
   "/Auth/register",
   "/Auth/forgot-password",
+  "/Auth/reset-password",
   "/Auth/refresh-token",
 ];
 
@@ -21,7 +21,6 @@ const axiosInstance = axios.create({
   timeout: 10000,
 });
 
-// Refresh token logic
 let isRefreshing = false;
 let failedQueue = [];
 
@@ -30,7 +29,6 @@ const processQueue = (error, token = null) => {
   failedQueue = [];
 };
 
-// ==== Request interceptor to handle CORS preflight ====
 axiosInstance.interceptors.request.use(
   (config) => {
     try {
@@ -39,7 +37,7 @@ axiosInstance.interceptors.request.use(
       );
 
       if (!isAnonymous) {
-        const token = getCookie("accessToken");
+        const token = getAccessToken();
         if (token && !isTokenExpired(token)) {
           config.headers.Authorization = `Bearer ${token}`;
         }
@@ -47,7 +45,7 @@ axiosInstance.interceptors.request.use(
 
       return config;
     } catch (e) {
-      console.error("Failed to access from cookies:", e.message);
+      console.error("Failed to attach access token:", e.message);
     }
 
     return config;
@@ -60,7 +58,13 @@ axiosInstance.interceptors.response.use(
   async (error) => {
     const originalRequest = error.config;
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Don't try to refresh tokens for the refresh / login / register endpoints themselves —
+    // a 401 there means the cookie is missing or invalid; recursing produces an endless loop.
+    const isAuthEndpoint = ANONYMOUS_ENDPOINTS.some((endpoint) =>
+      originalRequest?.url?.includes(endpoint),
+    );
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject });

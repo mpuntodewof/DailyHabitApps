@@ -1,6 +1,5 @@
 import { createContext, useContext, useState, useCallback } from 'react';
-import { getCookie } from '../utils/cookieUtils';
-import { buildUserProfile, isTokenExpired } from '../utils/tokenUtils';
+import { buildUserProfile, getAccessToken } from '../utils/tokenUtils';
 import api from '../api/axiosInstance';
 
 const HabitContext = createContext();
@@ -11,25 +10,44 @@ export const HabitProvider = ({ children }) => {
   const [habits, setHabits] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  const [pagination, setPagination] = useState({ total: 0, page: 1, pageSize: 20 });
+
   const fetchHabits = useCallback(async () => {
     setLoading(true);
     try {
-      const accessToken = getCookie('accessToken');
-      const isAuthenticated = accessToken && !isTokenExpired(accessToken);
-      if (!isAuthenticated) {
-        console.warn('Access token missing or expired. Skipping fetchHabits.');
+      const token = getAccessToken();
+      if (!token) {
         setLoading(false);
         return;
       }
 
-      var resToken = buildUserProfile(accessToken);
-
-      // console.log('Fetching habits for user:', resToken.sub);
-
-      const res = await api.get(`/Habit/get-habits/${resToken.sub}`);
+      const profile = buildUserProfile(token);
+      const res = await api.get(`/Habit/get-habits/${profile.sub}`);
       setHabits(res.data || []);
     } catch (err) {
       console.error('Failed to fetch habits:', err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  const searchHabits = useCallback(async ({ search = '', tagId = null, includeArchived = false, page = 1, pageSize = 20 } = {}) => {
+    if (!getAccessToken()) return;
+    setLoading(true);
+    try {
+      const params = { page, pageSize, includeArchived };
+      if (search) params.search = search;
+      if (tagId) params.tagId = tagId;
+      const res = await api.get('/Habit/search', { params });
+      const result = res.data?.result;
+      setHabits({ result: result?.items || [] });
+      setPagination({
+        total: result?.total ?? 0,
+        page: result?.page ?? page,
+        pageSize: result?.pageSize ?? pageSize,
+      });
+    } catch (err) {
+      console.error('Failed to search habits:', err.message);
     } finally {
       setLoading(false);
     }
@@ -42,9 +60,7 @@ export const HabitProvider = ({ children }) => {
       const createdData = Array.isArray(res.data) ? res.data[0] : res.data;
 
       setHabits((prev) =>
-        Array.isArray(prev)
-          ? prev.map((habit) => (habit.id === habit.id ? createdData : habit))
-          : [createdData]
+        Array.isArray(prev) ? [...prev, createdData] : [createdData]
       );
 
       return res;
@@ -79,28 +95,50 @@ export const HabitProvider = ({ children }) => {
     }
   };
 
+  const archiveHabit = async (id) => {
+    try {
+      const res = await api.post(`/Habit/archive/${id}`);
+      setHabits((prev) =>
+        Array.isArray(prev) ? prev.filter((h) => h.id !== id) : prev
+      );
+      return res;
+    } catch (err) {
+      console.error('Failed to archive habit: ' + err.message);
+      throw err;
+    }
+  };
+
+  const restoreHabit = async (id) => {
+    try {
+      const res = await api.post(`/Habit/restore/${id}`);
+      await fetchHabits();
+      return res;
+    } catch (err) {
+      console.error('Failed to restore habit: ' + err.message);
+      throw err;
+    }
+  };
+
   const deleteHabit = async (id) => {
     try {
-      // 1. Delete the habit from the server
       const res = await api.delete(`/Habit/delete-habit/${id}`);
 
-      // 2. After successful deletion, fetch the updated habits
-      const accessToken = getCookie('accessToken');
-      const resToken = buildUserProfile(accessToken);
-      const habitsRes = await api.get(`/Habit/get-habits/${resToken.userId}`);
-
-      // 3. Update the state with fresh data from the server
-      setHabits(habitsRes.data || []);
+      const token = getAccessToken();
+      if (token) {
+        const profile = buildUserProfile(token);
+        const habitsRes = await api.get(`/Habit/get-habits/${profile.sub}`);
+        setHabits(habitsRes.data || []);
+      }
 
       return res;
     } catch (err) {
       console.error('Failed to delete habit: ' + err.message);
-      throw err; // Re-throw to let the calling component handle the error
+      throw err;
     }
   }
 
   return (
-    <HabitContext.Provider value={{ habits, loading, fetchHabits, createHabit, updateHabit, deleteHabit }}>
+    <HabitContext.Provider value={{ habits, loading, pagination, fetchHabits, searchHabits, createHabit, updateHabit, deleteHabit, archiveHabit, restoreHabit }}>
       {children}
     </HabitContext.Provider>
   );

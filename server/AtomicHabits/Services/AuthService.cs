@@ -1,4 +1,6 @@
-﻿using AtomicHabits.Models;
+﻿using AtomicHabits.Config;
+using AtomicHabits.Data;
+using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
 using AtomicHabits.Repositories;
 using AtomicHabits.Service;
@@ -7,6 +9,7 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.AspNetCore.WebUtilities;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using System.Net;
 using System.Security.Claims;
 using System.Security.Cryptography;
@@ -17,19 +20,19 @@ namespace AtomicHabits.Services
 {
     public interface IAuthService
     {
-        Task<ApiResponse> RegisterAsync(RegisterDto dto);
-        Task<ApiResponse> LoginAsync(LoginDto dto);
+        Task<ApiResponse> RegisterAsync(RegisterDto dto, HttpContext? ctx = null);
+        Task<ApiResponse> LoginAsync(LoginDto dto, HttpContext? ctx = null);
+        Task<ApiResponse> VerifyTwoFactorAsync(string pendingToken, string code, HttpContext? ctx, CancellationToken ct);
         Task<ApiResponse> ForgotPasswordAsync(ForgotPasswordDTO dto, CancellationToken cancellationToken);
         Task<ApiResponse> ResetPasswordAsync(ResetPasswordDTO dto, CancellationToken cancellationToken);
-        Task<ApiResponse> RefreshTokenAsync(RefreshTokenDto dto, CancellationToken ct);
-        //Task<ApiResponse> StoreRefreshTokenAsync(int userId, string refreshToken, CancellationToken cancellationToken = default);
+        Task<ApiResponse> RefreshTokenAsync(HttpContext? ctx, RefreshTokenDto? dto, CancellationToken ct);
         Task<string?> GeneratePasswordResetTokenAsync(string email, CancellationToken cancellationToken);
 
         Task<UserInfoDto?> GetCurrentUserFromJwt(string? jwtToken);
         Task<string?> GetUserIdFromJwt(string? jwtToken);
         Task<string?> GetUserIdAsync(HttpContext httpContext);
         Task<UserInfoDto?> GetCurrentUserAsync(HttpContext httpContext);
-        Task<ApiResponse> RevokeRefreshTokenAsync(int userId, CancellationToken ct);
+        Task<ApiResponse> RevokeRefreshTokenAsync(int userId, HttpContext? ctx, CancellationToken ct);
 
     }
 
@@ -40,23 +43,35 @@ namespace AtomicHabits.Services
         private readonly IUserRepositories _userRepo;
         private readonly IEmailSender _emailSender;
         private readonly ILogger<AuthService> _logger;
+        private readonly ITwoFactorService _twoFactor;
         private ApiResponse _response;
-        private readonly IPasswordHasher<User> _hasher;
+        private readonly JwtOptions _jwt;
+        private readonly AppOptions _app;
 
-        public AuthService(AppDbContext db, ITokenService tokenService, IUserRepositories userRepo, IEmailSender emailSender, ILogger<AuthService> logger, IPasswordHasher<User> hasher)
+        public AuthService(
+            AppDbContext db,
+            ITokenService tokenService,
+            IUserRepositories userRepo,
+            IEmailSender emailSender,
+            ILogger<AuthService> logger,
+            ITwoFactorService twoFactor,
+            IOptions<JwtOptions> jwt,
+            IOptions<AppOptions> app)
         {
             _db = db;
             _tokenService = tokenService;
             _userRepo = userRepo;
             _emailSender = emailSender;
             _logger = logger;
+            _twoFactor = twoFactor;
             _response = new ApiResponse();
-            _hasher = hasher;
+            _jwt = jwt.Value;
+            _app = app.Value;
         }
 
         #region Main Feature 
 
-        public async Task<ApiResponse> RegisterAsync(RegisterDto dto)
+        public async Task<ApiResponse> RegisterAsync(RegisterDto dto, HttpContext? ctx = null)
         {
             using var trx = await _db.Database.BeginTransactionAsync();
             try
@@ -89,7 +104,7 @@ namespace AtomicHabits.Services
                     await _db.SaveChangesAsync();
                 }
 
-                return await IssueTokensAsync(user);
+                return await IssueTokensAsync(user, ctx);
             }
             catch (Exception ex)
             {
@@ -102,7 +117,7 @@ namespace AtomicHabits.Services
             }
         }
 
-        public async Task<ApiResponse> LoginAsync(LoginDto dto)
+        public async Task<ApiResponse> LoginAsync(LoginDto dto, HttpContext? ctx = null)
         {
             var response = new ApiResponse();
             try
@@ -125,7 +140,20 @@ namespace AtomicHabits.Services
                     return response;
                 }
 
-                return await IssueTokensAsync(user);
+                if (await _twoFactor.IsEnabledAsync(user.Id, CancellationToken.None))
+                {
+                    var pendingToken = _tokenService.GenerateTwoFactorPendingToken(user, TimeSpan.FromMinutes(5));
+                    response.IsSuccess = true;
+                    response.StatusCode = HttpStatusCode.OK;
+                    response.Result = new
+                    {
+                        requiresTwoFactor = true,
+                        twoFactorToken = pendingToken
+                    };
+                    return response;
+                }
+
+                return await IssueTokensAsync(user, ctx);
             }
             catch (Exception ex)
             {
@@ -134,6 +162,56 @@ namespace AtomicHabits.Services
                 _response.StatusCode = HttpStatusCode.InternalServerError;
                 _response.ErrorMessages.Add(ex.Message);
                 return _response;
+            }
+        }
+
+        public async Task<ApiResponse> VerifyTwoFactorAsync(string pendingToken, string code, HttpContext? ctx, CancellationToken ct)
+        {
+            try
+            {
+                var userId = _tokenService.ValidateTwoFactorPendingToken(pendingToken);
+                if (userId is null)
+                {
+                    return new ApiResponse
+                    {
+                        IsSuccess = false,
+                        StatusCode = HttpStatusCode.Unauthorized,
+                        ErrorMessages = new List<string> { "Invalid or expired 2FA challenge token." }
+                    };
+                }
+
+                if (!await _twoFactor.VerifyAsync(userId.Value, code, ct))
+                {
+                    return new ApiResponse
+                    {
+                        IsSuccess = false,
+                        StatusCode = HttpStatusCode.BadRequest,
+                        ErrorMessages = new List<string> { "Invalid code." }
+                    };
+                }
+
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId.Value, ct);
+                if (user == null)
+                {
+                    return new ApiResponse
+                    {
+                        IsSuccess = false,
+                        StatusCode = HttpStatusCode.NotFound,
+                        ErrorMessages = new List<string> { "User not found." }
+                    };
+                }
+
+                return await IssueTokensAsync(user, ctx);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "[AuthService.VerifyTwoFactorAsync] Error");
+                return new ApiResponse
+                {
+                    IsSuccess = false,
+                    StatusCode = HttpStatusCode.InternalServerError,
+                    ErrorMessages = new List<string> { "Verify 2FA error: " + ex.Message }
+                };
             }
         }
 
@@ -161,8 +239,18 @@ namespace AtomicHabits.Services
                 }
 
                 var token = await GeneratePasswordResetTokenAsync(dto.Email);
-                token = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
-                var resetPath = "http://localhost:3000/ResetPassword?" + $"token={token}&" + $"email={user.Email}";
+                if (string.IsNullOrWhiteSpace(token))
+                {
+                    _response.StatusCode = HttpStatusCode.InternalServerError;
+                    _response.IsSuccess = false;
+                    _response.ErrorMessages.Add("Failed to generate password reset token.");
+                    return _response;
+                }
+
+                var encodedToken = WebEncoders.Base64UrlEncode(Encoding.UTF8.GetBytes(token));
+                var baseUrl = _app.WebBaseUrl.TrimEnd('/');
+                var path = _app.ResetPasswordPath.StartsWith('/') ? _app.ResetPasswordPath : "/" + _app.ResetPasswordPath;
+                var resetPath = $"{baseUrl}{path}?token={encodedToken}&email={Uri.EscapeDataString(user.Email!)}";
 
                 await _emailSender.SendEmailAsync(dto.Email, "Reset Password", MailBody(dto.Email, HtmlEncoder.Default.Encode(resetPath)));
 
@@ -183,45 +271,91 @@ namespace AtomicHabits.Services
 
         public async Task<ApiResponse> ResetPasswordAsync(ResetPasswordDTO dto, CancellationToken cancellationToken = default)
         {
-            var user = await _userRepo.GetByEmailAsync(dto.Email);
-            if (user == null)
+            try
             {
-                _response.IsSuccess = false;
-                _response.StatusCode = HttpStatusCode.BadRequest;
-                _response.ErrorMessages.Add("User not found.");
+                if (dto == null
+                    || string.IsNullOrWhiteSpace(dto.Email)
+                    || string.IsNullOrWhiteSpace(dto.Token)
+                    || string.IsNullOrWhiteSpace(dto.Password))
+                {
+                    _response.IsSuccess = false;
+                    _response.StatusCode = HttpStatusCode.BadRequest;
+                    _response.ErrorMessages.Add("Email, token and new password are all required.");
+                    return _response;
+                }
+
+                if (!string.IsNullOrEmpty(dto.ConfirmPassword) && dto.Password != dto.ConfirmPassword)
+                {
+                    _response.IsSuccess = false;
+                    _response.StatusCode = HttpStatusCode.BadRequest;
+                    _response.ErrorMessages.Add("New password and confirmation do not match.");
+                    return _response;
+                }
+
+                var user = await _userRepo.GetByEmailAsync(dto.Email);
+                if (user == null)
+                {
+                    _response.IsSuccess = false;
+                    _response.StatusCode = HttpStatusCode.BadRequest;
+                    _response.ErrorMessages.Add("User not found.");
+                    return _response;
+                }
+
+                string decodedToken;
+                try
+                {
+                    decodedToken = Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(dto.Token));
+                }
+                catch (Exception ex)
+                {
+                    _logger.LogWarning(ex, "[AuthService.ResetPasswordAsync] Token decode failed for {Email}", dto.Email);
+                    _response.IsSuccess = false;
+                    _response.StatusCode = HttpStatusCode.BadRequest;
+                    _response.ErrorMessages.Add("Invalid or expired reset token.");
+                    return _response;
+                }
+
+                if (string.IsNullOrEmpty(user.PasswordResetToken)
+                    || user.PasswordResetToken != decodedToken
+                    || user.ResetTokenExpiry == null
+                    || user.ResetTokenExpiry < DateTime.UtcNow)
+                {
+                    _response.IsSuccess = false;
+                    _response.StatusCode = HttpStatusCode.BadRequest;
+                    _response.ErrorMessages.Add("Invalid or expired reset token.");
+                    return _response;
+                }
+
+                // Atomic: hash new password and consume the reset token in a single save.
+                user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(dto.Password);
+                user.PasswordResetToken = null;
+                user.ResetTokenExpiry = null;
+                _db.Users.Update(user);
+
+                var rowsAffected = await _db.SaveChangesAsync(cancellationToken);
+                if (rowsAffected <= 0)
+                {
+                    _logger.LogError("[AuthService.ResetPasswordAsync] SaveChanges returned 0 for {Email}", dto.Email);
+                    _response.IsSuccess = false;
+                    _response.StatusCode = HttpStatusCode.InternalServerError;
+                    _response.ErrorMessages.Add("Failed to update password.");
+                    return _response;
+                }
+
+                _logger.LogInformation("[AuthService.ResetPasswordAsync] Password reset for {Email}", dto.Email);
+
+                _response.IsSuccess = true;
+                _response.StatusCode = HttpStatusCode.OK;
                 return _response;
             }
-
-            var decodedToken = System.Text.Encoding.UTF8.GetString(WebEncoders.Base64UrlDecode(dto.Token));
-            if (user.PasswordResetToken != decodedToken || user.ResetTokenExpiry == null || user.ResetTokenExpiry < DateTime.UtcNow)
+            catch (Exception ex)
             {
-                _response.IsSuccess = false;
-                _response.StatusCode = HttpStatusCode.BadRequest;
-                _response.ErrorMessages.Add("Invalid or expired reset token.");
-                return _response;
-            }
-
-            var setToken = await _userRepo.SetPasswordResetTokenAsync(user, decodedToken);
-            if (!setToken)
-            {
+                _logger.LogError(ex, "[AuthService.ResetPasswordAsync] Error for {Email}", dto?.Email);
                 _response.IsSuccess = false;
                 _response.StatusCode = HttpStatusCode.InternalServerError;
-                _response.ErrorMessages.Add("Failed to set reset token state.");
+                _response.ErrorMessages.Add("Failed to reset password: " + ex.Message);
                 return _response;
             }
-
-            var updateResult = await _userRepo.UpdatePasswordAsync(user, dto.Password);
-            if (!updateResult)
-            {
-                _response.IsSuccess = false;
-                _response.StatusCode = HttpStatusCode.InternalServerError;
-                _response.ErrorMessages.Add("Failed to update password");
-                return _response;
-            }
-
-            _response.IsSuccess = true;
-            _response.StatusCode = HttpStatusCode.OK;
-            return _response;
         }
 
         #endregion
@@ -229,7 +363,39 @@ namespace AtomicHabits.Services
 
         #region Token Section
 
-        private async Task<ApiResponse> IssueTokensAsync(User user)
+        private const string RefreshCookieName = "refreshToken";
+
+        private TimeSpan RefreshTokenLifetime => TimeSpan.FromDays(_jwt.RefreshTokenDays > 0 ? _jwt.RefreshTokenDays : 7);
+
+        private void WriteRefreshTokenCookie(HttpContext? ctx, string token)
+        {
+            if (ctx == null) return;
+
+            ctx.Response.Cookies.Append(RefreshCookieName, token, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Path = "/api/Auth",
+                Expires = DateTimeOffset.UtcNow.Add(RefreshTokenLifetime),
+                IsEssential = true
+            });
+        }
+
+        private void ClearRefreshTokenCookie(HttpContext? ctx)
+        {
+            if (ctx == null) return;
+
+            ctx.Response.Cookies.Delete(RefreshCookieName, new CookieOptions
+            {
+                HttpOnly = true,
+                Secure = true,
+                SameSite = SameSiteMode.Strict,
+                Path = "/api/Auth"
+            });
+        }
+
+        private async Task<ApiResponse> IssueTokensAsync(User user, HttpContext? ctx = null)
         {
             var roles = await _db.UserRoles
                 .Where(x => x.UserId == user.Id)
@@ -245,38 +411,54 @@ namespace AtomicHabits.Services
                 UserId = user.Id,
                 TokenHash = Hash(refreshToken),
                 CreatedAt = DateTime.UtcNow,
-                ExpiresAt = DateTime.UtcNow.AddDays(7)
+                ExpiresAt = DateTime.UtcNow.Add(RefreshTokenLifetime)
             };
 
             _db.RefreshTokens.Add(refreshEntity);
             await _db.SaveChangesAsync();
+
+            WriteRefreshTokenCookie(ctx, refreshToken);
 
             _response.StatusCode = HttpStatusCode.OK;
             _response.IsSuccess = true;
             _response.Result = new
             {
                 accessToken,
-                refreshToken,
-                expiresAt = DateTime.UtcNow.AddDays(1)
+                expiresAt = DateTime.UtcNow.AddHours(1)
             };
 
             return _response;
         }
 
-        public async Task<ApiResponse> RefreshTokenAsync(RefreshTokenDto dto, CancellationToken ct)
+        public async Task<ApiResponse> RefreshTokenAsync(HttpContext? ctx, RefreshTokenDto? dto, CancellationToken ct)
         {
             try
             {
-                var hash = Hash(dto.RefreshToken);
+                var presented = ctx?.Request.Cookies[RefreshCookieName];
+                if (string.IsNullOrWhiteSpace(presented))
+                {
+                    presented = dto?.RefreshToken;
+                }
+
+                if (string.IsNullOrWhiteSpace(presented))
+                {
+                    _response.StatusCode = HttpStatusCode.Unauthorized;
+                    _response.IsSuccess = false;
+                    _response.ErrorMessages.Add("Refresh token is missing");
+                    return _response;
+                }
+
+                var hash = Hash(presented);
 
                 var token = await _db.RefreshTokens
                     .Include(t => t.User)
                     .ThenInclude(u => u.UserRoles)!
                     .ThenInclude(r => r.Role)
-                    .FirstOrDefaultAsync(t => t.TokenHash == hash && !t.IsRevoked);
+                    .FirstOrDefaultAsync(t => t.TokenHash == hash && !t.IsRevoked, ct);
 
                 if (token == null || token.ExpiresAt < DateTime.UtcNow)
                 {
+                    ClearRefreshTokenCookie(ctx);
                     _response.StatusCode = HttpStatusCode.Unauthorized;
                     _response.IsSuccess = false;
                     _response.ErrorMessages.Add("Invalid refresh token");
@@ -286,24 +468,26 @@ namespace AtomicHabits.Services
                 token.IsRevoked = true;
                 var roles = token.User.UserRoles!.Select(r => r.Role.Name).ToList();
                 var newAccess = await _tokenService.GenerateToken(token.User, roles);
-                var newRefresh = _tokenService.GenerateRefreshToken();
+                var newRefresh = await _tokenService.GenerateRefreshToken();
 
                 _db.RefreshTokens.Add(new RefreshToken
                 {
                     UserId = token.UserId,
-                    TokenHash = Hash(newRefresh.ToString()!),
+                    TokenHash = Hash(newRefresh),
                     CreatedAt = DateTime.UtcNow,
-                    ExpiresAt = DateTime.UtcNow.AddDays(1)
+                    ExpiresAt = DateTime.UtcNow.Add(RefreshTokenLifetime)
                 });
 
-                await _db.SaveChangesAsync();
+                await _db.SaveChangesAsync(ct);
+
+                WriteRefreshTokenCookie(ctx, newRefresh);
 
                 _response.IsSuccess = true;
                 _response.StatusCode = HttpStatusCode.OK;
                 _response.Result = new
                 {
                     accessToken = newAccess,
-                    refreshToken = newRefresh
+                    expiresAt = DateTime.UtcNow.AddHours(1)
                 };
                 return _response;
             }
@@ -317,24 +501,32 @@ namespace AtomicHabits.Services
             }
         }
 
-        public async Task<ApiResponse> RevokeRefreshTokenAsync(int userId, CancellationToken ct)
+        public async Task<ApiResponse> RevokeRefreshTokenAsync(int userId, HttpContext? ctx, CancellationToken ct)
         {
             try
             {
-                var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId);
+                var user = await _db.Users.FirstOrDefaultAsync(u => u.Id == userId, ct);
 
                 if (user == null)
                 {
-                    _response.StatusCode = HttpStatusCode.BadRequest;
+                    _response.StatusCode = HttpStatusCode.NotFound;
                     _response.IsSuccess = false;
-                    _response.ErrorMessages.Add("Username or Email already exists");
+                    _response.ErrorMessages.Add("User not found");
                     return _response;
                 }
 
-                user.RefreshToken = null;
-                user.RefreshTokenExpiry = null;
+                var activeTokens = await _db.RefreshTokens
+                    .Where(t => t.UserId == userId && !t.IsRevoked)
+                    .ToListAsync(ct);
 
-                await _db.SaveChangesAsync();
+                foreach (var t in activeTokens)
+                {
+                    t.IsRevoked = true;
+                }
+
+                await _db.SaveChangesAsync(ct);
+
+                ClearRefreshTokenCookie(ctx);
 
                 _response.IsSuccess = true;
                 _response.StatusCode = HttpStatusCode.OK;
@@ -350,138 +542,6 @@ namespace AtomicHabits.Services
                 return _response;
             }
         }
-
-        //private static string HashToken(string token)
-        //{
-        //    using var sha = System.Security.Cryptography.SHA256.Create();
-        //    var bytes = System.Text.Encoding.UTF8.GetBytes(token);
-        //    var hash = sha.ComputeHash(bytes);
-        //    return Convert.ToBase64String(hash);
-        //}
-
-        //public async Task<ApiResponse> RefreshTokenAsync(RefreshTokenDto dto, CancellationToken cancellationToken = default)
-        //{
-        //    var response = new ApiResponse();
-        //    try
-        //    {
-        //        #region validations
-
-        //        if (string.IsNullOrEmpty(dto.RefreshToken))
-        //        {
-        //            _response.StatusCode = HttpStatusCode.BadRequest;
-        //            _response.IsSuccess = false;
-        //            _response.ErrorMessages.Add("Refresh token is required");
-        //            return response;
-        //        }
-
-        //        var userIdStr = _tokenService.GetUserIdFromToken(dto.RefreshToken);
-        //        if (string.IsNullOrEmpty(userIdStr))
-        //        {
-        //            _response.StatusCode = HttpStatusCode.BadRequest;
-        //            _response.IsSuccess = false;
-        //            _response.ErrorMessages.Add("Invalid refresh token");
-        //            return response;
-        //        }
-
-        //        if (!int.TryParse(userIdStr, out var userId))
-        //        {
-        //            _response.StatusCode = HttpStatusCode.BadRequest;
-        //            _response.IsSuccess = false;
-        //            _response.ErrorMessages.Add("Invalid refresh token payload");
-        //            return response;
-        //        }
-
-        //        var user = await _db.Users
-        //            .Include(u => u.UserRoles)!
-        //            .ThenInclude(ur => ur.Role)
-        //            .FirstOrDefaultAsync(u => u.Id == userId, cancellationToken);
-
-        //        if (user == null)
-        //        {
-        //            _response.StatusCode = HttpStatusCode.NotFound;
-        //            _response.IsSuccess = false;
-        //            _response.ErrorMessages.Add("User not found");
-        //            return response;
-        //        }
-
-        //        if (user.RefreshToken != dto.RefreshToken || user.RefreshTokenExpiry < DateTime.UtcNow)
-        //        {
-        //            _response.StatusCode = HttpStatusCode.Unauthorized;
-        //            _response.IsSuccess = false;
-        //            _response.ErrorMessages.Add("Invalid or expired refresh token");
-        //            return response;
-        //        }
-
-        //        #endregion
-
-        //        var roles = user.UserRoles!.Select(u => u.Role.Name).ToList();
-        //        var newAccessToken = await _tokenService.GenerateToken(user, roles);
-        //        var newRefreshToken = await _tokenService.GenerateRefreshToken(user);
-
-        //        //user.RefreshToken = newRefreshToken;
-        //        user.RefreshToken = HashToken(newRefreshToken); // store hashed new refresh token
-        //        user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(7);
-        //        _db.Users.Update(user);
-        //        await _db.SaveChangesAsync(cancellationToken);
-
-        //        _response.StatusCode = HttpStatusCode.OK;
-        //        _response.IsSuccess = true;
-        //        _response.Result = new
-        //        {
-        //            accessToken = newAccessToken,
-        //            refreshToken = newRefreshToken,
-        //            expiresAt = DateTime.UtcNow.AddMinutes(15)
-        //        };
-        //        return response;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "[AuthService.RefreshTokenAsync] Error");
-        //        _response.IsSuccess = false;
-        //        _response.StatusCode = HttpStatusCode.InternalServerError;
-        //        _response.ErrorMessages.Add(ex.Message);
-        //        return response;
-        //    }
-        //}
-
-        //public async Task<ApiResponse> StoreRefreshTokenAsync(int userId, string refreshToken, CancellationToken cancellationToken = default)
-        //{
-        //    var response = new ApiResponse();
-        //    try
-        //    {
-        //        var user = await _db.Users.FindAsync(new object[] { userId }, cancellationToken);
-        //        if (user != null)
-        //        {
-        //            //user.RefreshToken = refreshToken;
-        //            user.RefreshToken = HashToken(refreshToken); // store hashed token
-        //            user.RefreshTokenExpiry = DateTime.UtcNow.AddDays(3);
-        //            await _db.SaveChangesAsync(cancellationToken);
-
-        //            _response.IsSuccess = true;
-        //            _response.StatusCode = HttpStatusCode.OK;
-        //            _response.Result = new
-        //            {
-        //                user.RefreshToken, user.RefreshTokenExpiry
-        //            };
-
-        //            return response;
-        //        }
-
-        //        _response.StatusCode = HttpStatusCode.NotFound;
-        //        _response.IsSuccess = false;
-        //        _response.ErrorMessages.Add("User not found, please get any user that exists.");
-        //        return response;
-        //    }
-        //    catch (Exception ex)
-        //    {
-        //        _logger.LogError(ex, "[AuthService.StoreRefreshTokenAsync] Error storing refresh token for {UserId}", userId);
-
-        //        _response.IsSuccess = false;
-        //        _response.StatusCode = HttpStatusCode.InternalServerError;
-        //        _response.ErrorMessages = new List<string>() { ex.Message.ToString() };
-        //        return response;
-        //    }
-        //}
 
         #endregion
 

@@ -1,4 +1,5 @@
-﻿using AtomicHabits.Models;
+﻿using AtomicHabits.Data;
+using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
 using Microsoft.EntityFrameworkCore;
 

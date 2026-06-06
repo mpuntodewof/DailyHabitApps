@@ -1,5 +1,30 @@
-# Editor Directories 
+# Editor / build artifacts
+.vs/
+.idea/
+.vscode/
+**/bin/
+**/obj/
 
-/server/.vs/
-/server/AtomicHabits/bin/
-/server/AtomicHabits/obj/
+# Frontend
+node_modules/
+client-ui/dist/
+client-ui/.vite/
+
+# Local-only config and secrets
+# Never commit secrets — use `dotnet user-secrets` or env vars.
+# `appsettings.Development.json` IS tracked (shared dev config like log levels);
+# put per-developer overrides in `appsettings.Local.json` which is NOT tracked.
+**/appsettings.Local.json
+**/appsettings.*.local.json
+# `.env` at repo root holds compose secrets; `.env.example` is the tracked template.
+.env
+**/.env.local
+**/.env.*.local
+**/secrets.json
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Logs
+*.log

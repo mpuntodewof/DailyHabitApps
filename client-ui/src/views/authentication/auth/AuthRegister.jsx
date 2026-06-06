@@ -3,6 +3,7 @@ import { Box, Typography, Button } from '@mui/material';
 import { Link, useNavigate } from 'react-router-dom';
 
 import CustomTextField from '../../../components/forms/theme-elements/CustomTextField.jsx';
+import PasswordField from '../../../components/forms/PasswordField.jsx';
 import { Stack } from '@mui/system';
 import { useAuth } from '../../../context/AuthContext';
 import { useSnackbar } from '../../../context/SnackbarContext';
@@ -53,7 +54,7 @@ const AuthRegister = ({ title, subtitle, subtext }) => {
 
                     <Typography variant="subtitle1"
                         fontWeight={600} component="label" htmlFor='password' mb="5px" mt="25px">Password</Typography>
-                    <CustomTextField id="password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} variant="outlined" fullWidth required />
+                    <PasswordField id="password" value={password} onChange={(e) => setPassword(e.target.value)} variant="outlined" fullWidth required />
                 </Stack>
                 <Button disabled={submitting} color="primary" variant="contained" size="large" fullWidth type="submit">
                     Sign Up

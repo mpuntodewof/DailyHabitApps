@@ -1,4 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import api from "../../api/axiosInstance";
+import TwoFactorDialog from "./TwoFactorDialog";
+import TagManagement from "./TagManagement";
 import {
   Box,
   Card,
@@ -38,51 +41,52 @@ import {
   IconPalette,
   IconSpacingHorizontal,
 } from "@tabler/icons-react";
+import { useUserPreferences } from "../../context/UserPreferencesContext";
 
 const Settings = () => {
-  const [settings, setSettings] = useState({
-    notifications: true,
-    darkMode: false,
-    twoFactor: false,
-    emailUpdates: true,
-    deviceSync: true,
-  });
+  const { prefs, savePrefs } = useUserPreferences();
 
-  const [themeSettings, setThemeSettings] = useState({
-    primaryColor: "#2196f3",
-    fontFamily: "Inter",
-    borderRadius: "8",
-    spacing: "8",
-  });
-
+  const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
+  const [twoFactorDialog, setTwoFactorDialog] = useState({ open: false, mode: 'enable' });
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+
+  const refreshTwoFactor = async () => {
+    try {
+      const res = await api.get('/TwoFactor/status');
+      setTwoFactorEnabled(!!res.data?.result?.enabled);
+    } catch {
+      setTwoFactorEnabled(false);
+    }
+  };
+
+  useEffect(() => { refreshTwoFactor(); }, []);
+
+  const handleTwoFactorToggle = (e) => {
+    setTwoFactorDialog({ open: true, mode: e.target.checked ? 'enable' : 'disable' });
+  };
   const [snackbar, setSnackbar] = useState({
     open: false,
     message: "",
     severity: "success",
   });
 
-  const handleChange = (setting) => (event) => {
-    setSettings({
-      ...settings,
-      [setting]: event.target.checked,
-    });
+  const handleToggle = (key) => async (event) => {
+    const ok = await savePrefs({ [key]: event.target.checked });
     setSnackbar({
       open: true,
-      message: "Settings updated successfully!",
-      severity: "success",
+      message: ok ? "Settings updated successfully!" : "Failed to save settings",
+      severity: ok ? "success" : "error",
     });
   };
 
-  const handleThemeChange = (setting, value) => {
-    setThemeSettings({
-      ...themeSettings,
-      [setting]: value,
-    });
+  const handleThemeChange = async (key, value) => {
+    const numericKeys = ["borderRadius", "spacing"];
+    const cast = numericKeys.includes(key) ? Number(value) || 0 : value;
+    const ok = await savePrefs({ [key]: cast });
     setSnackbar({
       open: true,
-      message: "Theme settings updated!",
-      severity: "success",
+      message: ok ? "Theme settings updated!" : "Failed to save theme",
+      severity: ok ? "success" : "error",
     });
   };
 
@@ -116,8 +120,8 @@ const Settings = () => {
                     <ListItemSecondaryAction>
                       <Switch
                         edge="end"
-                        checked={settings.notifications}
-                        onChange={handleChange("notifications")}
+                        checked={!!prefs.notifications}
+                        onChange={handleToggle("notifications")}
                       />
                     </ListItemSecondaryAction>
                   </ListItem>
@@ -133,8 +137,8 @@ const Settings = () => {
                     <ListItemSecondaryAction>
                       <Switch
                         edge="end"
-                        checked={settings.darkMode}
-                        onChange={handleChange("darkMode")}
+                        checked={!!prefs.darkMode}
+                        onChange={handleToggle("darkMode")}
                       />
                     </ListItemSecondaryAction>
                   </ListItem>
@@ -145,13 +149,13 @@ const Settings = () => {
                     </ListItemIcon>
                     <ListItemText
                       primary="Two-Factor Authentication"
-                      secondary="Add an extra layer of security to your account"
+                      secondary={twoFactorEnabled ? "Enabled — toggle off to disable" : "Add an extra layer of security to your account"}
                     />
                     <ListItemSecondaryAction>
                       <Switch
                         edge="end"
-                        checked={settings.twoFactor}
-                        onChange={handleChange("twoFactor")}
+                        checked={twoFactorEnabled}
+                        onChange={handleTwoFactorToggle}
                       />
                     </ListItemSecondaryAction>
                   </ListItem>
@@ -167,8 +171,8 @@ const Settings = () => {
                     <ListItemSecondaryAction>
                       <Switch
                         edge="end"
-                        checked={settings.emailUpdates}
-                        onChange={handleChange("emailUpdates")}
+                        checked={!!prefs.emailUpdates}
+                        onChange={handleToggle("emailUpdates")}
                       />
                     </ListItemSecondaryAction>
                   </ListItem>
@@ -184,8 +188,8 @@ const Settings = () => {
                     <ListItemSecondaryAction>
                       <Switch
                         edge="end"
-                        checked={settings.deviceSync}
-                        onChange={handleChange("deviceSync")}
+                        checked={!!prefs.deviceSync}
+                        onChange={handleToggle("deviceSync")}
                       />
                     </ListItemSecondaryAction>
                   </ListItem>
@@ -210,7 +214,7 @@ const Settings = () => {
                           width: 48,
                           height: 48,
                           borderRadius: 1,
-                          bgcolor: themeSettings.primaryColor,
+                          bgcolor: prefs.primaryColor,
                           cursor: "pointer",
                           border: "2px solid",
                           borderColor: "divider",
@@ -232,7 +236,7 @@ const Settings = () => {
                       Font Family
                     </Typography>
                     <RadioGroup
-                      value={themeSettings.fontFamily}
+                      value={prefs.fontFamily}
                       onChange={(e) =>
                         handleThemeChange("fontFamily", e.target.value)
                       }
@@ -263,7 +267,7 @@ const Settings = () => {
                     </Typography>
                     <TextField
                       type="number"
-                      value={themeSettings.borderRadius}
+                      value={prefs.borderRadius}
                       onChange={(e) =>
                         handleThemeChange("borderRadius", e.target.value)
                       }
@@ -284,7 +288,7 @@ const Settings = () => {
                     </Typography>
                     <TextField
                       type="number"
-                      value={themeSettings.spacing}
+                      value={prefs.spacing}
                       onChange={(e) => handleThemeChange("spacing", e.target.value)}
                       InputProps={{
                         startAdornment: (
@@ -301,6 +305,9 @@ const Settings = () => {
               </CardContent>
             </Card>
           </Grid>
+          <Grid item width={"100%"}>
+            <TagManagement />
+          </Grid>
         </Grid>
 
         <Dialog
@@ -313,7 +320,7 @@ const Settings = () => {
           <DialogContent>
             <Box sx={{ p: 2 }}>
               <SketchPicker
-                color={themeSettings.primaryColor}
+                color={prefs.primaryColor}
                 onChange={(color) => handleThemeChange("primaryColor", color.hex)}
                 width="100%"
               />
@@ -339,6 +346,13 @@ const Settings = () => {
             {snackbar.message}
           </Alert>
         </Snackbar>
+
+        <TwoFactorDialog
+          open={twoFactorDialog.open}
+          mode={twoFactorDialog.mode}
+          onClose={() => setTwoFactorDialog({ ...twoFactorDialog, open: false })}
+          onChanged={refreshTwoFactor}
+        />
       </Container>
     </PageContainer>
   );
