@@ -81,8 +81,8 @@ export const AuthProvider = ({ children }) => {
     }
   }, [fetchMe]);
 
-  const verifyTwoFactor = useCallback(async (twoFactorToken, code) => {
-    const res = await api.post('/Auth/verify-2fa', { twoFactorToken, code });
+  const verifyTwoFactor = useCallback(async (twoFactorToken, code, isRecoveryCode = false) => {
+    const res = await api.post('/Auth/verify-2fa', { twoFactorToken, code, isRecoveryCode });
     const accessToken = res.data?.result?.accessToken;
     if (!accessToken) {
       throw new Error("2FA verification did not return tokens");
