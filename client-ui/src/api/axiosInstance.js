@@ -6,6 +6,7 @@ const baseURL = import.meta.env.VITE_API_URL || "/api";
 const ANONYMOUS_ENDPOINTS = [
   "/Auth/login",
   "/Auth/register",
+  "/Auth/verify-2fa",
   "/Auth/forgot-password",
   "/Auth/reset-password",
   "/Auth/refresh-token",
