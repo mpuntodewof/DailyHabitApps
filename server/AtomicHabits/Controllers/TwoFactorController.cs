@@ -4,6 +4,7 @@ using AtomicHabits.Services;
 using AtomicHabits.Utils;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using System.Net;
 
 namespace AtomicHabits.Controllers
 {
@@ -76,7 +77,7 @@ namespace AtomicHabits.Controllers
                 return BadRequest(new ApiResponse
                 {
                     IsSuccess = false,
-                    StatusCode = System.Net.HttpStatusCode.BadRequest,
+                    StatusCode = HttpStatusCode.BadRequest,
                     ErrorMessages = new List<string> { "Invalid code" }
                 });
             }
@@ -85,7 +86,7 @@ namespace AtomicHabits.Controllers
             return Ok(new ApiResponse
             {
                 IsSuccess = true,
-                StatusCode = System.Net.HttpStatusCode.OK,
+                StatusCode = HttpStatusCode.OK,
                 Result = new { recoveryCodes = codes }
             });
         }
@@ -100,7 +101,7 @@ namespace AtomicHabits.Controllers
             return Ok(new ApiResponse
             {
                 IsSuccess = true,
-                StatusCode = System.Net.HttpStatusCode.OK,
+                StatusCode = HttpStatusCode.OK,
                 Result = new { remaining }
             });
         }
