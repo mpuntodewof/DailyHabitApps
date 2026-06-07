@@ -25,6 +25,10 @@ namespace AtomicHabits.Data
         public DbSet<Tag> Tags { get; set; }
         public DbSet<HabitTag> HabitTags { get; set; }
         public DbSet<TwoFactorRecoveryCode> TwoFactorRecoveryCodes { get; set; }
+        public DbSet<Vision> Visions { get; set; }
+        public DbSet<Goal> Goals { get; set; }
+        public DbSet<Milestone> Milestones { get; set; }
+        public DbSet<HabitSkip> HabitSkips { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -117,6 +121,50 @@ namespace AtomicHabits.Data
             modelBuilder.Entity<TwoFactorRecoveryCode>()
                 .HasIndex(c => c.UserId)
                 .HasDatabaseName("IX_TwoFactorRecoveryCodes_UserId");
+
+            modelBuilder.Entity<Vision>()
+                .HasIndex(v => v.UserId)
+                .HasDatabaseName("IX_Visions_UserId");
+
+            modelBuilder.Entity<Goal>()
+                .HasIndex(g => g.UserId)
+                .HasDatabaseName("IX_Goals_UserId");
+
+            modelBuilder.Entity<Goal>()
+                .HasOne(g => g.Vision)
+                .WithMany(v => v.Goals)
+                .HasForeignKey(g => g.VisionId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Milestone>()
+                .HasIndex(m => m.GoalId)
+                .HasDatabaseName("IX_Milestones_GoalId");
+
+            modelBuilder.Entity<Milestone>()
+                .HasOne(m => m.Goal)
+                .WithMany(g => g.Milestones)
+                .HasForeignKey(m => m.GoalId)
+                .OnDelete(DeleteBehavior.Cascade);
+
+            modelBuilder.Entity<Habit>()
+                .HasOne(h => h.Milestone)
+                .WithMany(m => m.Habits)
+                .HasForeignKey(h => h.MilestoneId)
+                .OnDelete(DeleteBehavior.SetNull);
+
+            modelBuilder.Entity<Habit>()
+                .HasIndex(h => h.MilestoneId)
+                .HasDatabaseName("IX_Habits_MilestoneId");
+
+            modelBuilder.Entity<HabitSkip>()
+                .HasIndex(s => new { s.UserId, s.HabitId, s.Date })
+                .HasDatabaseName("IX_HabitSkips_UserId_HabitId_Date");
+
+            modelBuilder.Entity<HabitSkip>()
+                .HasOne(s => s.Habit)
+                .WithMany()
+                .HasForeignKey(s => s.HabitId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }
