@@ -294,3 +294,6 @@ app.UseAuthorization();
 app.MapControllers();
 
 app.Run();
+
+// Exposed so WebApplicationFactory<Program> can boot the app in integration tests.
+public partial class Program { }
