@@ -39,6 +39,9 @@ public class AuthServiceRegistrationTests
         // TwoFactorService is in AtomicHabits.Services (plural namespace)
         var twoFactor = new TwoFactorService(db, NullLogger<TwoFactorService>.Instance);
 
+        // RegisterAsync talks to _db directly and does not call IUserRepositories or
+        // IEmailSender, so default (un-set-up) mocks are safe here. They satisfy the
+        // constructor only. (If registration ever starts using them, set them up.)
         var userRepo = new Mock<IUserRepositories>();
         var emailSender = new Mock<IEmailSender>();
 
@@ -81,12 +84,19 @@ public class AuthServiceRegistrationTests
         var res = await svc.RegisterAsync(dto, ctx: null);
 
         res.IsSuccess.Should().BeTrue();
+        // a real access token comes back (guards against a silent token-generation regression)
+        res.Result.Should().NotBeNull();
 
         // Assert via a FRESH context over the same connection — proves the transaction
         // was committed, not just that the entity lives in the first context's change
         // tracker. This is the genuine regression guard.
         using var verify = sqlite.NewContext();
-        verify.Users.Should().ContainSingle(u => u.Email == "alice@test.local");
+        var saved = verify.Users.SingleOrDefault(u => u.Email == "alice@test.local");
+        saved.Should().NotBeNull();
+
+        // The role assignment is part of the SAME transaction — verifying the UserRole row
+        // committed too confirms the whole transaction (user + role) persisted, not just the user.
+        verify.UserRoles.Should().ContainSingle(ur => ur.UserId == saved!.Id);
     }
 
     [Fact]
