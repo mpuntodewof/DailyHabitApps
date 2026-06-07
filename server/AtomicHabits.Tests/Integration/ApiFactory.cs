@@ -1,13 +1,17 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Text;
 using AtomicHabits.Data;
+using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
+using Microsoft.IdentityModel.Tokens;
 
 namespace AtomicHabits.Tests.Integration;
 
@@ -17,6 +21,15 @@ namespace AtomicHabits.Tests.Integration;
 /// </summary>
 public class ApiFactory : WebApplicationFactory<Program>
 {
+    // JWT values used consistently for token issuance (IOptions&lt;JwtOptions&gt;) and
+    // for the bearer middleware validation parameters. Program.cs reads the middleware
+    // config from configuration at startup time (before ConfigureAppConfiguration runs),
+    // so we patch the bearer options via PostConfigure instead of relying on the config
+    // pipeline alone.
+    internal const string TestJwtSecret   = "integration-signing-key-at-least-32-bytes-0123456789";
+    internal const string TestJwtIssuer   = "TestIssuer";
+    internal const string TestJwtAudience = "TestAudience";
+
     private readonly SqliteConnection _connection;
 
     public ApiFactory()
@@ -29,33 +42,56 @@ public class ApiFactory : WebApplicationFactory<Program>
     {
         builder.UseEnvironment("Development");
 
+        // Supply JWT values via configuration so that IOptions<JwtOptions> (used by
+        // TokenService for token signing) picks up the test values.
+        // NOTE: Program.cs reads the bearer-middleware ValidIssuer / ValidAudience directly
+        // from builder.Configuration before ConfigureAppConfiguration callbacks fire, so
+        // those reads may see null. We correct that below via PostConfigure.
         builder.ConfigureAppConfiguration((_, config) =>
         {
             config.AddInMemoryCollection(new Dictionary<string, string?>
             {
-                ["Jwt:Secret"] = "integration-signing-key-at-least-32-bytes-0123456789",
-                ["Jwt:Issuer"] = "TestIssuer",
-                ["Jwt:Audience"] = "TestAudience",
+                ["Jwt:Secret"]   = TestJwtSecret,
+                ["Jwt:Issuer"]   = TestJwtIssuer,
+                ["Jwt:Audience"] = TestJwtAudience,
             });
         });
 
         builder.ConfigureServices(services =>
         {
+            // ----------------------------------------------------------------
+            // JWT Bearer middleware fix:
+            // Program.cs reads ValidIssuer / ValidAudience / IssuerSigningKey
+            // directly from IConfiguration at build time, before the test's
+            // ConfigureAppConfiguration callback runs.  We override them here,
+            // where ConfigureServices always runs after the app's service
+            // registrations, so our PostConfigure wins.
+            // ----------------------------------------------------------------
+            // Resolve the actual signing secret: mirror the same priority chain that
+            // TokenService uses (env var wins over test config) so the bearer middleware
+            // validates with exactly the same key that signs the tokens.
+            var rawSecret = Environment.GetEnvironmentVariable("JWT_SECRET") ?? TestJwtSecret;
+            var signingKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(rawSecret));
+            services.PostConfigure<JwtBearerOptions>(JwtBearerDefaults.AuthenticationScheme, opts =>
+            {
+                opts.TokenValidationParameters.ValidIssuer              = TestJwtIssuer;
+                opts.TokenValidationParameters.ValidAudience            = TestJwtAudience;
+                opts.TokenValidationParameters.IssuerSigningKey         = signingKey;
+                opts.TokenValidationParameters.ValidateIssuer           = true;
+                opts.TokenValidationParameters.ValidateAudience         = true;
+                opts.TokenValidationParameters.ValidateIssuerSigningKey = true;
+                opts.TokenValidationParameters.ValidateLifetime         = true;
+                opts.TokenValidationParameters.ClockSkew                = TimeSpan.Zero;
+            });
+
+            // ----------------------------------------------------------------
             // Remove ALL EF Core / SqlServer descriptors so the SqlServer provider
             // registered in Program.cs doesn't conflict with SQLite.
-            // EF Core registers provider services under internal types; the reliable way
-            // is to remove every descriptor whose implementation or service type comes
-            // from the SqlServer or EntityFrameworkCore assemblies, plus AppDbContext itself.
-            var efAssemblyPrefixes = new[]
-            {
-                "Microsoft.EntityFrameworkCore",
-                "AtomicHabits.Data.AppDbContext"
-            };
-
+            // ----------------------------------------------------------------
             var toRemove = services
                 .Where(d =>
                 {
-                    var typeName = d.ServiceType.FullName ?? string.Empty;
+                    var typeName    = d.ServiceType.FullName ?? string.Empty;
                     var implTypeName = d.ImplementationType?.FullName
                         ?? d.ImplementationInstance?.GetType().FullName
                         ?? string.Empty;
