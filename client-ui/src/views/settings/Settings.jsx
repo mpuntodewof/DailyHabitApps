@@ -48,14 +48,31 @@ const Settings = () => {
 
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const [twoFactorDialog, setTwoFactorDialog] = useState({ open: false, mode: 'enable' });
+  const [recoveryRemaining, setRecoveryRemaining] = useState(null);
   const [colorPickerOpen, setColorPickerOpen] = useState(false);
+
+  const refreshRecoveryCount = async () => {
+    try {
+      const res = await api.get('/TwoFactor/recovery-codes/count');
+      setRecoveryRemaining(res.data?.result?.remaining ?? null);
+    } catch {
+      setRecoveryRemaining(null);
+    }
+  };
 
   const refreshTwoFactor = async () => {
     try {
       const res = await api.get('/TwoFactor/status');
-      setTwoFactorEnabled(!!res.data?.result?.enabled);
+      const enabled = !!res.data?.result?.enabled;
+      setTwoFactorEnabled(enabled);
+      if (enabled) {
+        refreshRecoveryCount();
+      } else {
+        setRecoveryRemaining(null);
+      }
     } catch {
       setTwoFactorEnabled(false);
+      setRecoveryRemaining(null);
     }
   };
 
@@ -149,7 +166,22 @@ const Settings = () => {
                     </ListItemIcon>
                     <ListItemText
                       primary="Two-Factor Authentication"
-                      secondary={twoFactorEnabled ? "Enabled — toggle off to disable" : "Add an extra layer of security to your account"}
+                      secondary={
+                        twoFactorEnabled ? (
+                          <Stack component="span" direction="row" spacing={1} alignItems="center">
+                            <span>Recovery codes: {recoveryRemaining ?? '—'} remaining</span>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => setTwoFactorDialog({ open: true, mode: 'regenerate' })}
+                            >
+                              Regenerate
+                            </Button>
+                          </Stack>
+                        ) : (
+                          "Add an extra layer of security to your account"
+                        )
+                      }
                     />
                     <ListItemSecondaryAction>
                       <Switch
