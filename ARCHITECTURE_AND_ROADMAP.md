@@ -234,7 +234,7 @@ Legend: ✅ working, ⚠️ working with known bugs, 🟡 partially built / sche
 
 - **Push notifications** — Web Push / VAPID for daily reminders (currently email-only).
 - **Reminder UX polish** — timezone-aware times (currently UTC), tag-aware filtering of reminders.
-- **2FA recovery codes** — fallback when an authenticator device is lost.
+- ~~**2FA recovery codes** — fallback when an authenticator device is lost.~~ ✅ Shipped 2026-06-07 (see Changelog).
 - **Tag rename / edit** — currently the Tag UI supports create/delete; renaming uses the existing PUT endpoint but the UI is read/delete only.
 - **Continue the TS migration** — port `axiosInstance`, `RequirePermission`, contexts (`AuthContext`, `HabitContext`, …) and views as work touches them. The plumbing is ready (`tsconfig.json`, types installed, `npm run typecheck`).
 - **Code splitting** — `react-apexcharts` is pushing a 580 kB chunk; defer with dynamic import per route.
@@ -611,4 +611,23 @@ Build status: backend **0 errors**, frontend **vite build ✓**, **typecheck ✓
    ```
    (Migration tooling isn't bundled into the runtime image yet — use the local `dotnet ef` against the compose-exposed DB on port 1433 if you'd rather.)
 
+### 2026-06-07 — 2FA recovery codes (§9 near-term)
+
+Single-use recovery codes as a fallback when an authenticator device is lost. Full lifecycle: issue at enrollment, log in with a code, regenerate from Settings. Design + ADR: [docs/superpowers/specs/2026-06-06-2fa-recovery-codes-design.md](docs/superpowers/specs/2026-06-06-2fa-recovery-codes-design.md), [docs/superpowers/adr/0001-2fa-recovery-codes.md](docs/superpowers/adr/0001-2fa-recovery-codes.md).
+
+Backend:
+- New entity [`Models/TwoFactorRecoveryCode.cs`](server/AtomicHabits/Models/TwoFactorRecoveryCode.cs) — one row per code, SHA-256 hash of the normalized code, `IsUsed`/`UsedAt`. Registered in [`AppDbContext`](server/AtomicHabits/Data/AppDbContext.cs) with `IX_TwoFactorRecoveryCodes_UserId`. Migration `AddTwoFactorRecoveryCodes` (applied).
+- [`TwoFactorService`](server/AtomicHabits/Services/TwoFactorService.cs): `GenerateRecoveryCodesAsync` (10 codes, Crockford-base32 `XXXX-XXXX-XXXX`, replaces any prior set), `VerifyRecoveryCodeAsync` (race-safe single-use via atomic `ExecuteUpdateAsync ... WHERE !IsUsed`), `CountRemainingRecoveryCodesAsync`. Codes are generated on `ConfirmEnrollmentAsync` and deleted on `DisableAsync`.
+- [`TwoFactorController`](server/AtomicHabits/Controllers/TwoFactorController.cs): `POST /api/TwoFactor/recovery-codes/regenerate` (TOTP-gated) and `GET /api/TwoFactor/recovery-codes/count`. `enable-confirm` now returns the codes once.
+- Login: `VerifyTwoFactorDto` gains `IsRecoveryCode`; [`AuthService.VerifyTwoFactorAsync`](server/AtomicHabits/Services/AuthService.cs) branches to `VerifyRecoveryCodeAsync` vs TOTP on the explicit flag (no format auto-detection). Recovery path stays gated behind the validated 5-minute pending token.
+
+Frontend:
+- New [`RecoveryCodesPanel.jsx`](client-ui/src/views/settings/RecoveryCodesPanel.jsx) — one-time code display with copy/download and an acknowledgement-gated Done.
+- [`TwoFactorDialog.jsx`](client-ui/src/views/settings/TwoFactorDialog.jsx) shows codes after enable and gains a `regenerate` mode.
+- [`AuthLogin.jsx`](client-ui/src/views/authentication/auth/AuthLogin.jsx) 2FA challenge gains a "use a recovery code instead" toggle; [`AuthContext.verifyTwoFactor`](client-ui/src/context/AuthContext.jsx) forwards the flag.
+- [`Settings.jsx`](client-ui/src/views/settings/Settings.jsx) shows "Recovery codes: N remaining" + a Regenerate button when 2FA is enabled.
+
+Verification: backend `dotnet build` **0 errors**, frontend `npm run typecheck` ✓, `vite build` ✓, migration applied to the local DB. **Manual end-to-end (enable → capture → recovery-login → consume → regenerate) has NOT yet been run against the running app** — recommended before relying on it in production (no automated test harness exists in this repo).
+
+Deferred (non-blocking): per-attempt rate-limiting on recovery codes, audit logging, consolidating the double-save in `ConfirmEnrollmentAsync` — see the plan's follow-ups.
 
