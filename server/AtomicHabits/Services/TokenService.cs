@@ -127,7 +127,11 @@ namespace AtomicHabits.Service
                     ValidateLifetime = true,
                     ValidIssuer = _jwt.Issuer,
                     ValidAudience = _jwt.Audience,
-                    IssuerSigningKey = _signingKey
+                    IssuerSigningKey = _signingKey,
+                    // Match the main JWT bearer config (Program.cs uses ClockSkew.Zero). Without
+                    // this, the default 5-min skew lets a 5-min pending token live ~10 min here —
+                    // more lenient than the rest of the auth system for a security-sensitive token.
+                    ClockSkew = TimeSpan.Zero
                 }, out _);
 
                 if (principal.FindFirst("twofa_pending")?.Value != "true") return null;
