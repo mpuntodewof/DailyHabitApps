@@ -255,7 +255,7 @@ Legend: ✅ working, ⚠️ working with known bugs, 🟡 partially built / sche
 ## 10. Platform / DevOps Roadmap
 
 - **Real CI/CD** — README mentions Jenkins + Docker but no `Dockerfile` / `Jenkinsfile` is present. Add multi-stage Dockerfiles for both projects, a pipeline (build → test → migrate → deploy), and a `docker-compose.yml` for local SQL Server + API + UI.
-- **Automated tests** — ⏳ *backend started* (2026-06-07): `server/AtomicHabits.Tests` (xUnit + EF InMemory + SQLite + `WebApplicationFactory` + Moq). 24 tests cover `StreakCalculator`, `TwoFactorService` recovery codes, two regression guards (2FA pending-token, registration commit), register/login HTTP integration, and habit IDOR. **Still uncovered:** `HabitTrackingService` (duplicate-day, streak upsert), `DashboardService` heatmap buckets, the reminder dispatcher, and the **entire frontend** (no Vitest/RTL yet). See `docs/superpowers/plans/2026-06-07-backend-test-suite.md`.
+- **Automated tests** — ⏳ *backend in progress* (2026-06-07): `server/AtomicHabits.Tests` (xUnit + EF InMemory + SQLite + `WebApplicationFactory` + Moq), **36 tests**. Covers `StreakCalculator`, `TwoFactorService` recovery codes, `HabitService` summary math, **`HabitTrackingService`** (duplicate-day rejection, create path) + **`StreakRepositories`** upsert + **distribution bucketing** (weekly/monthly), three regression guards (2FA pending-token, registration commit, **persisted-streak-never-advances**), register/login HTTP integration, and habit IDOR. **Still uncovered:** `DashboardService` heatmap buckets, the reminder dispatcher, and the **entire frontend** (no Vitest/RTL yet). Plans: `docs/superpowers/plans/2026-06-07-backend-test-suite.md`, `…-habit-tracking-test-slice.md`.
 - **Observability** — structured logging (Serilog + Seq/ELK), OpenTelemetry traces, health-check endpoint.
 - **Centralized config / secrets** — Azure Key Vault or AWS Secrets Manager; remove `Trusted_Connection=True` localhost default in [appsettings.json](server/AtomicHabits/appsettings.json#L3).
 - **API versioning** — `/api/v1/...` before public release.
@@ -648,4 +648,16 @@ Two further production fixes surfaced *by writing the tests* (each its own commi
 Still uncovered (next): `HabitTrackingService` (duplicate-day, streak upsert), `DashboardService` heatmap buckets, the reminder dispatcher, and the **frontend** (no Vitest/RTL yet).
 
 Run the suite: `dotnet test server/AtomicHabits.sln`.
+
+### 2026-06-07 — HabitTracking test slice (+ streak-reset bug fix)
+
+Extended the backend suite from 24 → **36 tests** over the daily-write path. Plan: [docs/superpowers/plans/2026-06-07-habit-tracking-test-slice.md](docs/superpowers/plans/2026-06-07-habit-tracking-test-slice.md).
+
+- **`StreakRepositories.UpsertStreakAfterTracking`** — 4 tests (first completion, consecutive→2, missed-day breaks current keeps best, completion-rate).
+- **`HabitTrackingService`** — duplicate-day rejection (`PostHabitProgress` + `PostDailyHabit` → 409), create-path, habit-not-found 404.
+- **Distribution** — weekly day-of-month bucketing (int[4]) and monthly month-index (int[12]), incl. empty-set cases.
+
+**Bug found & fixed by these tests** (commit `2c0718d`): `UpsertStreakAfterTracking` looked up the "last completed tracking" *after* `CreateTracking` had already saved the current day's row, so it always matched today (not yesterday) and reset `CurrentStreak` to 1 on every entry. The **persisted** `Streak.CurrentStreak`/`BestStreak` therefore never advanced past 1 — even though `GetHabitStats` (which recomputes via `StreakCalculator`) displayed the correct value. Fixed by excluding the current day's row (`ht.TrackingDate < date`) from the lookup; guarded by the consecutive-days test.
+
+Still uncovered: `DashboardService` heatmap buckets, the reminder dispatcher, and the frontend.
 
