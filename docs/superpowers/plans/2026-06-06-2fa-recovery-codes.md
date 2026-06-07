@@ -1037,6 +1037,11 @@ git commit -m "Add ADR 0001 for 2FA recovery codes"
 - **No rate-limiting on recovery-code attempts** — acceptable because ~60 bits of entropy makes guessing infeasible, and the recovery code is only accepted behind a valid 5-minute pending token. The existing TOTP path also has no throttle; adding throttling to *both* is a separate hardening item.
 - **Delete-on-disable:** codes are meaningless once 2FA is off, and re-enrolling issues a fresh set; keeping stale rows would be dead state.
 
+**Deferred refinements (from Task 3 code review — non-blocking):**
+- `ConfirmEnrollmentAsync` saves twice (enable flag, then codes). Harmless but could be consolidated into one transaction.
+- No audit logging on generate/verify/disable of recovery codes — worth adding when an observability pass happens (platform roadmap).
+- User-existence guard in `GenerateRecoveryCodesAsync` is omitted (both callers already establish the user exists).
+
 **Deferred features:**
 - No "low codes remaining" nag or auto-regeneration.
 - When a test harness lands (platform roadmap), backfill unit tests for `GenerateRecoveryCodesAsync` (replace semantics), `VerifyRecoveryCodeAsync` (single-use + race), and the `AuthService` login branch.
