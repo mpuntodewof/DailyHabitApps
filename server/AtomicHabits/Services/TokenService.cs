@@ -131,7 +131,12 @@ namespace AtomicHabits.Service
                 }, out _);
 
                 if (principal.FindFirst("twofa_pending")?.Value != "true") return null;
-                var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value;
+
+                // JwtSecurityTokenHandler remaps the "sub" claim to ClaimTypes.NameIdentifier by
+                // default (MapInboundClaims), so look under both names — otherwise the lookup
+                // silently returns null and every 2FA challenge is rejected as "invalid/expired".
+                var sub = principal.FindFirst(JwtRegisteredClaimNames.Sub)?.Value
+                          ?? principal.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
                 return int.TryParse(sub, out var id) ? id : null;
             }
             catch
