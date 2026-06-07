@@ -23,6 +23,6 @@ createRoot(document.getElementById('root')).render(
   <StrictMode>
     <Suspense fallback={<LoadingFallback />}>
       <App />
-    </Suspense>,
-  </StrictMode>,
+    </Suspense>
+  </StrictMode>
 )

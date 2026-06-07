@@ -1,4 +1,4 @@
-## 🧠 Atomic Habits – Habit Tracking & Analytics Platform
+## 🧠 Momentum – Habit Tracking & Analytics Platform
 
 A full-stack habit tracking application that helps users build consistency through daily habit tracking, calendar-based logging, and visual analytics.
 Built with React (Material UI) on the frontend and ASP.NET Core Web API (.NET 8) on the backend.

@@ -112,7 +112,7 @@ namespace AtomicHabits.Scheduling
                 <p>Hi,</p>
                 <p>This is a reminder to complete your habit: <strong>{habitName}</strong>.</p>
                 <p>Keep the streak going!</p>
-                <p>— Atomic Habits</p>
+                <p>— Momentum</p>
             </body></html>";
     }
 }

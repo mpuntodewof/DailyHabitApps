@@ -1,4 +1,4 @@
-# Atomic Habits — Architecture & Roadmap
+# Momentum — Architecture & Roadmap
 
 > Single reference document covering the current system design, existing feature inventory, fixes to apply to existing features, and the future feature roadmap.
 > Last reviewed: 2026-04-29
@@ -23,7 +23,7 @@
 
 ## 1. System Overview
 
-**Atomic Habits** is a full-stack habit-tracking & analytics platform.
+**Momentum** is a full-stack habit-tracking & analytics platform.
 
 | Layer    | Stack                                                                 |
 | -------- | --------------------------------------------------------------------- |

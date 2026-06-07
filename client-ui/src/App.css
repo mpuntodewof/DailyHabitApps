@@ -22,3 +22,22 @@
     outline: none !important;
     box-shadow: none !important;
 }
+
+/* Remove the solid black focus outline on buttons when clicked (mouse).
+   Keyboard users still get a visible, on-brand ring via :focus-visible below,
+   so this stays accessible. */
+.MuiButton-root:focus,
+.MuiButtonBase-root:focus,
+.MuiIconButton-root:focus,
+.MuiFab-root:focus {
+    outline: none !important;
+}
+
+/* Keep an accessible focus indicator for keyboard navigation only. */
+.MuiButton-root:focus-visible,
+.MuiButtonBase-root:focus-visible,
+.MuiIconButton-root:focus-visible,
+.MuiFab-root:focus-visible {
+    outline: none !important;
+    box-shadow: 0 0 0 3px rgba(93, 135, 255, 0.45) !important;
+}

@@ -1,5 +1,5 @@
 # syntax=docker/dockerfile:1.7
-# Multi-stage build for the Atomic Habits SPA. Final image: nginx serving the dist/ output.
+# Multi-stage build for the Momentum SPA. Final image: nginx serving the dist/ output.
 
 # 1) Build
 FROM node:20-alpine AS build

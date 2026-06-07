@@ -22,7 +22,7 @@ const Logo = () => {
       <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
         <IconAtom size={36} color="#5D87FF" />
         <Typography variant="h5" fontWeight={700} color="text.primary">
-          Atomic Habit
+          Momentum
         </Typography>
       </Box>
     </LinkStyled>

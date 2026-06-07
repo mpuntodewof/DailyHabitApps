@@ -31,6 +31,7 @@ const Stats = lazy(() => import('../views/stats/Stats'));
 // const Profile = lazy(() => import('../views/profile/Profile'));
 const Settings = lazy(() => import('../views/settings/Settings'));
 const AdminUsers = lazy(() => import('../views/admin/AdminUsers'));
+const Landing = lazy(() => import('../views/landing/Landing'));
 const Error = lazy(() => import('../views/authentication/Error'));
 const Login = lazy(() => import('../views/authentication/Login'));
 const Register = lazy(() => import('../views/authentication/Register'));
@@ -40,7 +41,17 @@ const ResetPassword = lazy(() => import('../views/authentication/auth/ResetPassw
 
 const Router = [
   {
+    // Public landing page — first thing every visitor sees at "/".
+    // No auth wall; its CTAs route into /auth/register and /auth/login.
     path: '/',
+    element: (
+      <Suspense fallback={<LoadingFallback />}>
+        <Landing />
+      </Suspense>
+    ),
+  },
+  {
+    // Authenticated app shell. Children keep their original absolute paths.
     element: (
       <ProtectedRoute>
         <Suspense fallback={<LoadingFallback />}>
@@ -49,14 +60,12 @@ const Router = [
       </ProtectedRoute>
     ),
     children: [
-      { path: '/', element: <Navigate to="/dashboard" /> },
       { path: '/dashboard', element: <Dashboard /> },
       { path: '/habits', exact: true, element: <Habit /> },
       { path: '/stats', exact: true, element: <Stats /> },
       { path: '/tables', exact: true, element: <Tables /> },
       { path: '/settings', exact: true, element: <Settings /> },
       { path: '/admin/users', exact: true, element: <AdminUsers /> },
-      { path: '*', element: <Navigate to="/auth/404" /> },
     ],
   },
   {

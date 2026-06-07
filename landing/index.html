@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Momentum — tiny habits, compounded</title>
+<meta name="description" content="A calm, focused habit tracker. Track the small things daily and watch them compound. One-time purchase. Yours forever." />
+
+<!-- Open Graph (for when you post the link to Reddit / IndieHackers / X) -->
+<meta property="og:title" content="Momentum — tiny habits, compounded" />
+<meta property="og:description" content="A calm habit tracker built on the idea that 1% better every day compounds. One-time purchase, yours forever." />
+<meta property="og:type" content="website" />
+
+<!-- Fonts: Fraunces (characterful serif display) + Hanken Grotesk (clean body). Deliberately NOT Inter/Roboto. -->
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,400&family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet" />
+
+<style>
+  /* ============================================================
+     MOMENTUM — landing page
+     Single-file. Two CTAs you configure below:
+       1. data-checkout  -> your Stripe Payment Link (paid test)
+       2. #notify form   -> email capture (interest test)
+     Search "CONFIGURE" to find both.
+     ============================================================ */
+
+  :root {
+    /* Brand DNA carried from the app theme (DefaultColors.js) */
+    --brand:        #5D87FF;   /* primary periwinkle */
+    --brand-deep:   #4570EA;
+    --brand-ink:    #2A3547;   /* app text.primary */
+    --streak:       #13DEB9;   /* success / "done" mint */
+    --streak-deep:  #02b3a9;
+
+    /* Warm paper palette — the anti-SaaS-white move */
+    --paper:        #F7F4EE;
+    --paper-2:      #FBF9F4;
+    --paper-edge:   #EAE3D6;
+    --ink:          #20242E;
+    --ink-soft:     #5A6175;
+    --ink-faint:    #8A8F9E;
+
+    --shadow-soft:  0 18px 40px -22px rgba(32,36,46,0.35);
+    --shadow-card:  0 24px 60px -30px rgba(32,36,46,0.45);
+
+    --maxw: 1120px;
+    --ease: cubic-bezier(0.22, 1, 0.36, 1);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html { scroll-behavior: smooth; }
+
+  body {
+    margin: 0;
+    font-family: "Hanken Grotesk", system-ui, sans-serif;
+    color: var(--ink);
+    background-color: var(--paper);
+    /* layered atmosphere: subtle warm glow + faint grain instead of flat fill */
+    background-image:
+      radial-gradient(120% 80% at 88% -10%, rgba(93,135,255,0.10), transparent 55%),
+      radial-gradient(90% 60% at -10% 8%, rgba(19,222,185,0.10), transparent 50%);
+    -webkit-font-smoothing: antialiased;
+    line-height: 1.55;
+    overflow-x: hidden;
+  }
+
+  /* film grain overlay for texture (CSS-only, no asset) */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 9999;
+    opacity: 0.035;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  }
+
+  a { color: inherit; }
+
+  .wrap { width: 100%; max-width: var(--maxw); margin: 0 auto; padding: 0 28px; }
+
+  /* ---------- staggered load animation ---------- */
+  .reveal { opacity: 0; transform: translateY(18px); animation: rise 0.9s var(--ease) forwards; }
+  @keyframes rise { to { opacity: 1; transform: none; } }
+  .d1 { animation-delay: .05s; } .d2 { animation-delay: .15s; }
+  .d3 { animation-delay: .25s; } .d4 { animation-delay: .35s; }
+  .d5 { animation-delay: .45s; } .d6 { animation-delay: .55s; }
+  @media (prefers-reduced-motion: reduce) {
+    .reveal { animation: none; opacity: 1; transform: none; }
+  }
+
+  /* ---------- nav ---------- */
+  nav {
+    position: sticky; top: 0; z-index: 50;
+    backdrop-filter: blur(10px);
+    background: rgba(247,244,238,0.72);
+    border-bottom: 1px solid rgba(234,227,214,0.8);
+  }
+  .nav-inner { display: flex; align-items: center; justify-content: space-between; height: 68px; }
+  .brand { display: flex; align-items: center; gap: 11px; font-weight: 600; letter-spacing: -0.01em; font-size: 1.12rem; }
+  .brand-mark {
+    width: 26px; height: 26px; border-radius: 8px;
+    background: linear-gradient(135deg, var(--brand), var(--streak));
+    position: relative; box-shadow: 0 6px 16px -6px rgba(93,135,255,0.7);
+  }
+  .brand-mark::after {
+    content:""; position:absolute; inset:7px; border-radius:3px;
+    background: var(--paper-2);
+  }
+  .nav-cta {
+    font-weight: 600; font-size: .92rem; padding: 9px 18px;
+    border-radius: 999px; background: var(--ink); color: var(--paper-2);
+    border: none; cursor: pointer; transition: transform .25s var(--ease), background .25s;
+  }
+  .nav-cta:hover { transform: translateY(-1px); background: var(--brand-deep); }
+
+  /* ---------- hero ---------- */
+  header { padding: 84px 0 40px; position: relative; }
+  .eyebrow {
+    display: inline-flex; align-items: center; gap: 9px;
+    font-size: .8rem; font-weight: 600; letter-spacing: .04em; text-transform: uppercase;
+    color: var(--brand-deep);
+    background: rgba(93,135,255,0.10);
+    padding: 7px 14px; border-radius: 999px;
+    border: 1px solid rgba(93,135,255,0.18);
+  }
+  .eyebrow .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--streak); box-shadow: 0 0 0 3px rgba(19,222,185,0.25); }
+
+  h1 {
+    font-family: "Fraunces", serif;
+    font-weight: 500;
+    font-size: clamp(2.7rem, 6.5vw, 5rem);
+    line-height: 1.02;
+    letter-spacing: -0.02em;
+    margin: 22px 0 0;
+    max-width: 16ch;
+    color: var(--ink);
+  }
+  h1 em {
+    font-style: italic;
+    color: var(--brand-deep);
+    position: relative;
+  }
+  h1 .underline { position: relative; white-space: nowrap; }
+  h1 .underline::after {
+    content:""; position:absolute; left:0; right:0; bottom: .08em; height: .14em;
+    background: var(--streak); border-radius: 2px; opacity: .55;
+    transform: scaleX(0); transform-origin: left; animation: ul 1s var(--ease) .8s forwards;
+  }
+  @keyframes ul { to { transform: scaleX(1); } }
+
+  .lede {
+    font-size: clamp(1.05rem, 1.7vw, 1.28rem);
+    color: var(--ink-soft);
+    max-width: 46ch; margin: 26px 0 0; font-weight: 400;
+  }
+
+  .hero-grid {
+    display: grid; grid-template-columns: 1.15fr 1fr; gap: 56px; align-items: center;
+  }
+  @media (max-width: 880px) { .hero-grid { grid-template-columns: 1fr; gap: 40px; } }
+
+  .cta-row { display: flex; flex-wrap: wrap; gap: 14px; align-items: center; margin-top: 34px; }
+  .btn-primary {
+    font-family: inherit; font-weight: 600; font-size: 1.02rem;
+    padding: 15px 28px; border-radius: 14px; border: none; cursor: pointer;
+    color: #fff; background: linear-gradient(135deg, var(--brand), var(--brand-deep));
+    box-shadow: 0 16px 34px -14px rgba(69,112,234,0.75);
+    transition: transform .25s var(--ease), box-shadow .25s;
+  }
+  .btn-primary:hover { transform: translateY(-2px); box-shadow: 0 22px 44px -14px rgba(69,112,234,0.85); }
+  .btn-ghost {
+    font-family: inherit; font-weight: 600; font-size: 1rem;
+    padding: 15px 22px; border-radius: 14px; cursor: pointer;
+    background: transparent; color: var(--ink); border: 1px solid var(--paper-edge);
+    transition: border-color .25s, transform .25s var(--ease);
+  }
+  .btn-ghost:hover { border-color: var(--brand); transform: translateY(-2px); }
+  .price-note { font-size: .9rem; color: var(--ink-faint); }
+  .price-note b { color: var(--ink); font-weight: 600; }
+
+  /* ---------- signature visual: living habit grid ---------- */
+  .device {
+    background: var(--paper-2);
+    border: 1px solid var(--paper-edge);
+    border-radius: 22px;
+    padding: 22px;
+    box-shadow: var(--shadow-card);
+    position: relative;
+    transform: rotate(1.2deg);
+  }
+  .device::before {
+    content:""; position:absolute; inset:0; border-radius:22px;
+    background: linear-gradient(135deg, rgba(93,135,255,0.06), rgba(19,222,185,0.06));
+    pointer-events:none;
+  }
+  .device-head { display:flex; align-items:center; justify-content:space-between; margin-bottom: 18px; }
+  .device-title { font-weight:600; font-size:.95rem; color: var(--ink); }
+  .device-sub { font-size:.78rem; color: var(--ink-faint); }
+  .streak-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    font-size:.78rem; font-weight:600; color: var(--streak-deep);
+    background: rgba(19,222,185,0.14); padding:5px 11px; border-radius:999px;
+  }
+  .heat {
+    display:grid; grid-template-columns: repeat(13, 1fr); gap:6px;
+  }
+  .cell { aspect-ratio:1; border-radius:5px; background: rgba(42,53,71,0.07); }
+  .cell.lvl1 { background: rgba(19,222,185,0.30); }
+  .cell.lvl2 { background: rgba(19,222,185,0.55); }
+  .cell.lvl3 { background: rgba(19,222,185,0.80); }
+  .cell.lvl4 { background: var(--streak); }
+  /* cells "fill in" on load */
+  .cell.anim { animation: pop .5s var(--ease) both; }
+  @keyframes pop { from { transform: scale(0.4); opacity:0; } to { transform: scale(1); opacity:1; } }
+
+  .habit-rows { margin-top: 18px; display:flex; flex-direction:column; gap:10px; }
+  .habit-row {
+    display:flex; align-items:center; gap:12px;
+    background: var(--paper); border:1px solid var(--paper-edge);
+    border-radius:12px; padding:11px 13px;
+  }
+  .check {
+    width:22px; height:22px; border-radius:7px; flex:0 0 auto;
+    border:2px solid var(--paper-edge); position:relative; transition: all .3s var(--ease);
+  }
+  .habit-row.done .check { background: var(--streak); border-color: var(--streak); }
+  .habit-row.done .check::after {
+    content:""; position:absolute; left:6px; top:2px; width:5px; height:10px;
+    border:solid #fff; border-width:0 2px 2px 0; transform: rotate(45deg);
+  }
+  .habit-name { font-weight:500; font-size:.92rem; }
+  .habit-row.done .habit-name { color: var(--ink-soft); }
+  .habit-meta { margin-left:auto; font-size:.76rem; color: var(--ink-faint); font-variant-numeric: tabular-nums; }
+
+  /* ---------- proof strip ---------- */
+  .proof { padding: 18px 0 8px; }
+  .proof-inner { display:flex; flex-wrap:wrap; gap: 14px 40px; align-items:center; color: var(--ink-faint); font-size:.86rem; }
+  .proof b { color: var(--ink); font-weight:600; }
+
+  /* ---------- section scaffolding ---------- */
+  section { padding: 86px 0; }
+  .sec-label { font-size:.8rem; font-weight:600; letter-spacing:.1em; text-transform:uppercase; color: var(--brand-deep); }
+  .sec-title {
+    font-family:"Fraunces", serif; font-weight:500; letter-spacing:-0.02em;
+    font-size: clamp(2rem, 4vw, 3rem); line-height:1.08; margin:14px 0 0; max-width: 18ch;
+  }
+  .sec-intro { color: var(--ink-soft); max-width: 52ch; margin-top:16px; font-size:1.05rem; }
+
+  /* ---------- features ---------- */
+  .features { display:grid; grid-template-columns: repeat(3,1fr); gap:22px; margin-top:54px; }
+  @media (max-width: 880px){ .features { grid-template-columns:1fr; } }
+  .feature {
+    background: var(--paper-2); border:1px solid var(--paper-edge);
+    border-radius:18px; padding:28px; box-shadow: var(--shadow-soft);
+    transition: transform .35s var(--ease), border-color .35s;
+  }
+  .feature:hover { transform: translateY(-4px); border-color: rgba(93,135,255,0.4); }
+  .ficon {
+    width:46px; height:46px; border-radius:13px; display:grid; place-items:center;
+    background: rgba(93,135,255,0.12); margin-bottom:18px;
+  }
+  .ficon svg { width:24px; height:24px; stroke: var(--brand-deep); fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .feature h3 { font-family:"Fraunces",serif; font-weight:500; font-size:1.32rem; margin:0 0 8px; letter-spacing:-0.01em; }
+  .feature p { margin:0; color: var(--ink-soft); font-size:.97rem; }
+  .feature .pro-tag {
+    display:inline-block; margin-top:14px; font-size:.72rem; font-weight:700; letter-spacing:.06em;
+    color: var(--streak-deep); background: rgba(19,222,185,0.14); padding:4px 10px; border-radius:999px;
+  }
+
+  /* ---------- philosophy band ---------- */
+  .band {
+    background: var(--ink); color: var(--paper-2);
+    border-radius: 28px; padding: clamp(40px, 6vw, 76px);
+    position:relative; overflow:hidden;
+  }
+  .band::before {
+    content:""; position:absolute; right:-60px; top:-60px; width:320px; height:320px; border-radius:50%;
+    background: radial-gradient(circle, rgba(93,135,255,0.45), transparent 65%);
+  }
+  .band::after {
+    content:""; position:absolute; left:-40px; bottom:-80px; width:280px; height:280px; border-radius:50%;
+    background: radial-gradient(circle, rgba(19,222,185,0.40), transparent 65%);
+  }
+  .band-quote {
+    font-family:"Fraunces", serif; font-weight:400; font-style:italic;
+    font-size: clamp(1.6rem, 3.4vw, 2.6rem); line-height:1.28; max-width: 22ch; position:relative; z-index:1;
+    letter-spacing:-0.01em;
+  }
+  .band-quote span { color: var(--streak); font-style: normal; }
+  .band-by { margin-top:22px; font-size:.92rem; color: rgba(247,244,238,0.65); position:relative; z-index:1; }
+
+  /* ---------- pricing ---------- */
+  .pricing { display:grid; grid-template-columns: 1fr 1fr; gap:24px; margin-top:54px; align-items:stretch; }
+  @media (max-width: 760px){ .pricing { grid-template-columns:1fr; } }
+  .plan {
+    background: var(--paper-2); border:1px solid var(--paper-edge); border-radius:20px; padding:34px;
+    display:flex; flex-direction:column;
+  }
+  .plan.pro {
+    background: linear-gradient(180deg, #fff, var(--paper-2));
+    border:1.5px solid var(--brand);
+    box-shadow: 0 30px 70px -34px rgba(69,112,234,0.6);
+    position:relative;
+  }
+  .plan.pro .ribbon {
+    position:absolute; top:20px; right:20px; font-size:.72rem; font-weight:700; letter-spacing:.06em;
+    color:#fff; background: var(--brand); padding:5px 12px; border-radius:999px;
+  }
+  .plan h3 { font-family:"Fraunces", serif; font-weight:500; font-size:1.5rem; margin:0; }
+  .plan .price { font-family:"Fraunces", serif; font-size: 3rem; font-weight:500; margin:14px 0 2px; letter-spacing:-0.02em; }
+  .plan .price small { font-family:"Hanken Grotesk", sans-serif; font-size:.95rem; font-weight:500; color: var(--ink-faint); }
+  .plan .price-sub { color: var(--ink-faint); font-size:.9rem; margin-bottom: 22px; }
+  .plan ul { list-style:none; padding:0; margin:0 0 26px; display:flex; flex-direction:column; gap:13px; }
+  .plan li { display:flex; gap:11px; align-items:flex-start; font-size:.96rem; color: var(--ink-soft); }
+  .plan li svg { width:19px; height:19px; flex:0 0 auto; margin-top:2px; stroke: var(--streak-deep); fill:none; stroke-width:2.2; stroke-linecap:round; stroke-linejoin:round; }
+  .plan .foot { margin-top:auto; }
+  .plan .btn-primary, .plan .btn-ghost { width:100%; text-align:center; }
+  .plan-note { text-align:center; font-size:.82rem; color: var(--ink-faint); margin-top:12px; }
+
+  /* ---------- notify / email capture (validation fallback) ---------- */
+  .notify {
+    background: var(--paper-2); border:1px dashed rgba(93,135,255,0.5);
+    border-radius:20px; padding: clamp(30px, 5vw, 52px); text-align:center; margin-top: 36px;
+  }
+  .notify h3 { font-family:"Fraunces",serif; font-weight:500; font-size: clamp(1.5rem,3vw,2rem); margin:0 0 10px; }
+  .notify p { color: var(--ink-soft); margin:0 auto 24px; max-width: 44ch; }
+  .notify form { display:flex; gap:10px; max-width: 460px; margin:0 auto; flex-wrap:wrap; }
+  .notify input {
+    flex:1; min-width: 220px; font-family:inherit; font-size:1rem; padding:14px 18px;
+    border-radius:13px; border:1px solid var(--paper-edge); background:#fff; color: var(--ink);
+  }
+  .notify input:focus { outline:none; border-color: var(--brand); box-shadow: 0 0 0 4px rgba(93,135,255,0.15); }
+  .notify .msg { margin-top:14px; font-size:.9rem; font-weight:600; min-height:1.2em; }
+  .notify .msg.ok { color: var(--streak-deep); }
+
+  /* ---------- faq ---------- */
+  .faq { max-width: 760px; margin: 48px auto 0; }
+  .qa { border-bottom:1px solid var(--paper-edge); }
+  .qa summary {
+    cursor:pointer; list-style:none; padding:22px 4px; font-weight:600; font-size:1.05rem;
+    display:flex; justify-content:space-between; align-items:center; gap:16px;
+  }
+  .qa summary::-webkit-details-marker { display:none; }
+  .qa summary::after { content:"+"; font-size:1.5rem; color: var(--brand-deep); font-weight:400; transition: transform .3s var(--ease); }
+  .qa[open] summary::after { transform: rotate(45deg); }
+  .qa p { margin:0 4px 22px; color: var(--ink-soft); font-size:.98rem; }
+
+  /* ---------- footer ---------- */
+  footer { padding: 56px 0 70px; border-top:1px solid var(--paper-edge); margin-top: 40px; }
+  .foot-inner { display:flex; flex-wrap:wrap; justify-content:space-between; gap:24px; align-items:center; }
+  .foot-links { display:flex; gap:24px; font-size:.9rem; color: var(--ink-soft); flex-wrap:wrap; }
+  .foot-links a { transition: color .2s; }
+  .foot-links a:hover { color: var(--brand-deep); }
+  .foot-fine { font-size:.82rem; color: var(--ink-faint); }
+</style>
+</head>
+<body>
+
+<!-- ============ NAV ============ -->
+<nav>
+  <div class="wrap nav-inner">
+    <div class="brand">
+      <span class="brand-mark"></span>
+      Momentum
+    </div>
+    <button class="nav-cta" data-checkout>Get Momentum — $29</button>
+  </div>
+</nav>
+
+<!-- ============ HERO ============ -->
+<header>
+  <div class="wrap hero-grid">
+    <div>
+      <span class="eyebrow reveal d1"><span class="dot"></span> Built on the 1% rule</span>
+      <h1 class="reveal d2">The small things, <em>compounded</em> into a <span class="underline">life you like</span>.</h1>
+      <p class="lede reveal d3">Momentum is a calm, focused habit tracker. No streaks-as-anxiety, no gamified noise — just the quiet satisfaction of showing up, one day at a time, and watching it add up.</p>
+      <div class="cta-row reveal d4">
+        <button class="btn-primary" data-checkout>Get Momentum — $29</button>
+        <a class="btn-ghost" href="#how">See how it works</a>
+      </div>
+      <p class="price-note reveal d4" style="margin-top:16px;">
+        <b>One-time payment.</b> No subscription. Yours forever, with free updates.
+      </p>
+    </div>
+
+    <!-- signature visual: the living habit grid (mirrors the app's heatmap) -->
+    <div class="device reveal d5" aria-hidden="true">
+      <div class="device-head">
+        <div>
+          <div class="device-title">This month</div>
+          <div class="device-sub">21 of 28 days · 75%</div>
+        </div>
+        <span class="streak-pill">🔥 12-day streak</span>
+      </div>
+      <div class="heat" id="heat"></div>
+      <div class="habit-rows">
+        <div class="habit-row done"><span class="check"></span><span class="habit-name">Read 10 pages</span><span class="habit-meta">12d</span></div>
+        <div class="habit-row done"><span class="check"></span><span class="habit-name">Morning walk</span><span class="habit-meta">8d</span></div>
+        <div class="habit-row"><span class="check"></span><span class="habit-name">No phone before noon</span><span class="habit-meta">3d</span></div>
+      </div>
+    </div>
+  </div>
+</header>
+
+<!-- ============ PROOF STRIP ============ -->
+<div class="proof">
+  <div class="wrap proof-inner reveal d6">
+    <span>🔒 <b>Your data stays yours</b> — full export, delete anytime</span>
+    <span>✨ <b>No ads, no tracking, no upsells</b></span>
+    <span>📊 <b>Heatmaps, streaks &amp; real analytics</b></span>
+  </div>
+</div>
+
+<!-- ============ HOW / FEATURES ============ -->
+<section id="how">
+  <div class="wrap">
+    <span class="sec-label">Why it sticks</span>
+    <h2 class="sec-title">Designed to make the next day the easy choice.</h2>
+    <p class="sec-intro">Every feature exists to lower the friction of showing up — and to make the progress impossible to ignore.</p>
+
+    <div class="features">
+      <div class="feature">
+        <div class="ficon"><svg viewBox="0 0 24 24"><path d="M12 3v18M3 12h18"/></svg></div>
+        <h3>One-tap daily check-in</h3>
+        <p>Log a habit in a second. Set a goal — pages, minutes, reps — or just mark it done. Daily, weekly, or monthly cadence.</p>
+      </div>
+      <div class="feature">
+        <div class="ficon"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="7" height="7" rx="1.5"/><rect x="14" y="3" width="7" height="7" rx="1.5"/><rect x="3" y="14" width="7" height="7" rx="1.5"/><rect x="14" y="14" width="7" height="7" rx="1.5"/></svg></div>
+        <h3>The momentum heatmap</h3>
+        <p>See your whole year as a field of filled-in days. The grid is the reward — and the gentle nudge when a column goes blank.</p>
+      </div>
+      <div class="feature">
+        <div class="ficon"><svg viewBox="0 0 24 24"><path d="M3 17l6-6 4 4 7-7"/><path d="M21 8V3h-5"/></svg></div>
+        <h3>Streaks &amp; real stats</h3>
+        <p>Current and best streaks, completion rates, and weekly/monthly/yearly breakdowns — math that respects each habit's own cadence.</p>
+      </div>
+      <div class="feature">
+        <div class="ficon"><svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 0 1-3.4 0"/></svg></div>
+        <h3>Reminders that respect you</h3>
+        <p>Per-habit reminders on the days you choose. A nudge, not a nag — and never a notification you didn't ask for.</p>
+        <span class="pro-tag">PRO</span>
+      </div>
+      <div class="feature">
+        <div class="ficon"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><path d="M14 2v6h6M12 18v-6M9 15h6"/></svg></div>
+        <h3>Own your data</h3>
+        <p>Export everything to CSV or JSON whenever you want. Delete your account and it's gone. No lock-in, no games.</p>
+        <span class="pro-tag">PRO</span>
+      </div>
+      <div class="feature">
+        <div class="ficon"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+        <h3>Tags, themes &amp; dark mode</h3>
+        <p>Group habits with tags, filter and search, and make it yours with custom themes and a proper dark mode.</p>
+        <span class="pro-tag">PRO</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PHILOSOPHY BAND ============ -->
+<section style="padding-top:0;">
+  <div class="wrap">
+    <div class="band reveal">
+      <p class="band-quote">“You do not rise to the level of your goals. You fall to the level of your <span>systems</span>.”</p>
+      <p class="band-by">Momentum is a system for the 1% — the tiny, boring, daily reps that quietly become who you are.</p>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PRICING ============ -->
+<section id="pricing">
+  <div class="wrap">
+    <span class="sec-label">Simple, honest pricing</span>
+    <h2 class="sec-title">Start free. Go Pro once, keep it forever.</h2>
+    <p class="sec-intro">No monthly bill for a habit tracker. Try the free tier, and if it earns a place in your day, unlock everything with a single payment.</p>
+
+    <div class="pricing">
+      <div class="plan">
+        <h3>Free</h3>
+        <div class="price">$0</div>
+        <div class="price-sub">For getting started</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Track up to 3 habits</li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Daily check-ins &amp; streaks</li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> 30-day heatmap</li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Secure account, 2FA</li>
+        </ul>
+        <div class="foot">
+          <a class="btn-ghost" href="#notify">Start free</a>
+        </div>
+      </div>
+
+      <div class="plan pro">
+        <span class="ribbon">BEST VALUE</span>
+        <h3>Pro</h3>
+        <div class="price">$29 <small>once</small></div>
+        <div class="price-sub">Everything, forever. Free updates.</div>
+        <ul>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> <b>Unlimited</b> habits</li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Full-year heatmap &amp; deep analytics</li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Reminders on the days you choose</li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> Tags, custom themes &amp; dark mode</li>
+          <li><svg viewBox="0 0 24 24"><path d="M5 12l5 5L20 7"/></svg> CSV / JSON export — your data, always</li>
+        </ul>
+        <div class="foot">
+          <button class="btn-primary" data-checkout>Get Momentum — $29</button>
+          <p class="plan-note">One-time payment · 14-day money-back · No subscription</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ NOTIFY / EMAIL CAPTURE (validation) ============ -->
+<section id="notify" style="padding-top:0;">
+  <div class="wrap">
+    <div class="notify reveal">
+      <h3>Not ready to commit? Get the launch note.</h3>
+      <p>Drop your email and I'll let you know the moment it's live — plus an early-bird discount for the first people in.</p>
+      <form id="notifyForm">
+        <input type="email" name="email" placeholder="you@example.com" required aria-label="Email address" />
+        <button type="submit" class="btn-primary" style="padding:14px 24px;">Notify me</button>
+      </form>
+      <div class="msg" id="notifyMsg" role="status"></div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FAQ ============ -->
+<section style="padding-top:0;">
+  <div class="wrap">
+    <span class="sec-label" style="display:block; text-align:center;">Questions</span>
+    <h2 class="sec-title" style="text-align:center; margin-left:auto; margin-right:auto;">Good to know</h2>
+    <div class="faq">
+      <details class="qa" open>
+        <summary>Is it really a one-time payment?</summary>
+        <p>Yes. Pay $29 once and Pro is yours — including future updates. No recurring charge, ever. A habit tracker shouldn't cost you a subscription for the rest of your life.</p>
+      </details>
+      <details class="qa">
+        <summary>What happens to my data?</summary>
+        <p>It's yours. You can export everything to CSV or JSON at any time, and deleting your account permanently removes your data. No ads, no selling data, no tracking pixels.</p>
+      </details>
+      <details class="qa">
+        <summary>Can I try it before paying?</summary>
+        <p>Absolutely — the Free tier lets you track up to 3 habits with streaks and a 30-day heatmap. Upgrade to Pro only if it earns a place in your day.</p>
+      </details>
+      <details class="qa">
+        <summary>What if I change my mind?</summary>
+        <p>There's a 14-day, no-questions money-back guarantee. If Momentum isn't for you, email me and I'll refund you.</p>
+      </details>
+    </div>
+  </div>
+</section>
+
+<!-- ============ FOOTER ============ -->
+<footer>
+  <div class="wrap foot-inner">
+    <div class="brand"><span class="brand-mark"></span> Momentum</div>
+    <div class="foot-links">
+      <a href="#how">Features</a>
+      <a href="#pricing">Pricing</a>
+      <a href="#notify">Get notified</a>
+      <a href="/privacy">Privacy</a>
+      <a href="/terms">Terms</a>
+    </div>
+    <div class="foot-fine">© <span id="yr"></span> Momentum. Built for the 1%.</div>
+  </div>
+</footer>
+
+<script>
+  /* ============================================================
+     CONFIGURE — two things to set before you ship:
+
+     1) STRIPE PAYMENT LINK
+        Create a one-time Payment Link in the Stripe dashboard
+        (Products → Payment links). Paste the URL here:
+     ------------------------------------------------------------ */
+  const STRIPE_PAYMENT_LINK = ""; // e.g. "https://buy.stripe.com/xxxxxxxx"
+
+  /* 2) EMAIL CAPTURE
+        For the validation test you have two easy options:
+        a) Leave ENDPOINT empty -> the form stores emails in
+           localStorage AND shows success (good for a quick smoke
+           test where you read them off your own browser).
+        b) Paste a Formspree / Buttondown / Tally endpoint URL to
+           actually collect them. (https://formspree.io is free.)
+     ------------------------------------------------------------ */
+  const NOTIFY_ENDPOINT = ""; // <-- PASTE YOUR FORMSPREE URL HERE, e.g. "https://formspree.io/f/xxxxxxx"
+  /* ============================================================
+     LAUNCH RUNBOOK (do these 3 steps, ~15 min total):
+       1. formspree.io -> new form -> copy URL -> paste above in NOTIFY_ENDPOINT
+       2. Host: drag the /landing folder onto https://pages.cloudflare.com
+          (or https://app.netlify.com/drop) -> get a public https URL
+       3. Post the launch copy (see LAUNCH_POSTS.md) to r/getdisciplined + indiehackers.com
+     Then watch Formspree for signups. That's your signal.
+     ============================================================ */
+
+  document.getElementById("yr").textContent = new Date().getFullYear();
+
+  // --- checkout buttons ---
+  document.querySelectorAll("[data-checkout]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      if (STRIPE_PAYMENT_LINK) {
+        window.location.href = STRIPE_PAYMENT_LINK;
+      } else {
+        // No payment link yet -> fall back to interest capture
+        document.getElementById("notify").scrollIntoView({ behavior: "smooth" });
+        var input = document.querySelector("#notifyForm input");
+        if (input) setTimeout(function(){ input.focus(); }, 600);
+      }
+    });
+  });
+
+  // --- notify form ---
+  var form = document.getElementById("notifyForm");
+  var msg = document.getElementById("notifyMsg");
+  form.addEventListener("submit", async function (e) {
+    e.preventDefault();
+    var email = form.email.value.trim();
+    if (!email) return;
+    msg.textContent = "Saving…";
+    msg.className = "msg";
+
+    try {
+      if (NOTIFY_ENDPOINT) {
+        await fetch(NOTIFY_ENDPOINT, {
+          method: "POST",
+          headers: { "Content-Type": "application/json", "Accept": "application/json" },
+          body: JSON.stringify({ email: email }),
+        });
+      } else {
+        // local fallback so you can validate without a backend
+        var list = JSON.parse(localStorage.getItem("momentum_emails") || "[]");
+        list.push({ email: email, at: new Date().toISOString() });
+        localStorage.setItem("momentum_emails", JSON.stringify(list));
+        console.log("Captured emails (localStorage):", list);
+      }
+      form.reset();
+      msg.textContent = "You're on the list. Talk soon. ✨";
+      msg.className = "msg ok";
+    } catch (err) {
+      msg.textContent = "Hmm, that didn't go through. Try again?";
+      msg.className = "msg";
+    }
+  });
+
+  // --- animate the heatmap on load (the signature moment) ---
+  (function buildHeat() {
+    var grid = document.getElementById("heat");
+    if (!grid) return;
+    var COLS = 13, ROWS = 4, total = COLS * ROWS;
+    // a deterministic-ish pattern that trends "fuller" recently
+    var levels = [];
+    for (var i = 0; i < total; i++) {
+      var recencyBias = i / total;            // later cells more likely filled
+      var seed = (Math.sin(i * 12.9898) * 43758.5453) % 1; // stable pseudo-random
+      var r = Math.abs(seed) * 0.7 + recencyBias * 0.4;
+      var lvl = r < 0.35 ? 0 : r < 0.55 ? 1 : r < 0.72 ? 2 : r < 0.88 ? 3 : 4;
+      levels.push(lvl);
+    }
+    var reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    levels.forEach(function (lvl, i) {
+      var cell = document.createElement("div");
+      cell.className = "cell" + (lvl ? " lvl" + lvl : "");
+      if (!reduce) {
+        cell.classList.add("anim");
+        cell.style.animationDelay = (0.5 + i * 0.012) + "s";
+      }
+      grid.appendChild(cell);
+    });
+  })();
+</script>
+</body>
+</html>

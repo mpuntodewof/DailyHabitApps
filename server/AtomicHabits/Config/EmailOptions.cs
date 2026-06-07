@@ -18,6 +18,6 @@ namespace AtomicHabits.Config
         // otherwise the SMTP server rejects the message with 5.7.0 "From address must match
         // authenticated user".
         public string FromAddress { get; set; } = string.Empty;
-        public string FromName { get; set; } = "Atomic Habits";
+        public string FromName { get; set; } = "Momentum";
     }
 }
