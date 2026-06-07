@@ -329,4 +329,51 @@ public class HabitServiceSummaryTests
         dto.MonthlySummary.TotalMonthlySessions.Should().Be(2);
         dto.MonthlySummary.MonthlyCompletionRate.Should().BeInRange(1, 100);
     }
+
+    // ────────────────────────────────────────────────────────────────────────
+    // Test 5 (regression guard): a habit with the LITERAL GoalFrequency = "daily"
+    // — the model's default value — must be counted as a daily habit.
+    //
+    // This guards the bug fixed alongside this suite: IsDailyHabit/ExpectedSessions
+    // used Contains("day"), but "daily" (d-a-i-l-y) does NOT contain "day", so every
+    // habit created with the default frequency was silently excluded from the today
+    // rate. With the fix (IsDailyFrequency also matches "dai"), HabitsToday must be 1.
+    // Before the fix this test FAILS (HabitsToday == 0); after, it passes.
+    // ────────────────────────────────────────────────────────────────────────
+    [Fact]
+    public async Task LiteralDailyFrequency_CountsAsDailyHabit()
+    {
+        var habit = new Habit
+        {
+            Id            = 20,
+            UserId        = 1,
+            Name          = "Read",
+            Frequency     = "Daily",
+            GoalFrequency = "daily",   // the literal model default — the bug trigger
+            GoalValue     = 1,
+            GoalUnit      = "times",
+        };
+        var tracking = new HabitTracking
+        {
+            Id = 1, HabitId = habit.Id, UserId = habit.UserId, IsCompleted = true,
+        };
+
+        var repo = RepoReturning(
+            habits:         new List<Habit> { habit },
+            todayTrackings: new List<HabitTracking> { tracking },
+            weekTrackings:  new List<HabitTracking> { tracking },
+            monthTrackings: new List<HabitTracking> { tracking });
+
+        var svc = BuildService(repo);
+
+        var response = await svc.HabitSummary(userId: 1);
+
+        response.IsSuccess.Should().BeTrue();
+        var dto = response.Result.Should().BeOfType<HabitSummaryDto>().Subject;
+
+        dto.TodaySummary.HabitsToday.Should().Be(1,
+            because: "GoalFrequency='daily' (the default) must be recognized as a daily habit");
+        dto.TodaySummary.CompletedToday.Should().Be(1);
+        dto.TodaySummary.TodayCompletionRate.Should().Be(100);
+    }
 }

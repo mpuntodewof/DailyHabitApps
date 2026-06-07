@@ -279,8 +279,15 @@ namespace AtomicHabits.Services
 
         private static bool IsDailyHabit(Habit h)
         {
-            var f = (h.GoalFrequency ?? "").Trim().ToLowerInvariant();
-            return f.Contains("day") || string.IsNullOrEmpty(f);
+            return IsDailyFrequency((h.GoalFrequency ?? "").Trim().ToLowerInvariant());
+        }
+
+        // True for an empty/unset frequency or a daily one. NOTE: the literal "daily" does NOT
+        // contain the substring "day" (d-a-i-l-y), and "daily" is the model's default value —
+        // so a naive Contains("day") silently undercounts every default habit. Match both forms.
+        private static bool IsDailyFrequency(string f)
+        {
+            return string.IsNullOrEmpty(f) || f.Contains("day") || f.Contains("dai");
         }
 
         // Expected completions for a habit within a window of `daysElapsed` days
@@ -290,7 +297,7 @@ namespace AtomicHabits.Services
             if (daysElapsed <= 0 || periodLengthDays <= 0) return 0;
 
             var f = (h.GoalFrequency ?? "").Trim().ToLowerInvariant();
-            if (f.Contains("day")) return daysElapsed;
+            if (IsDailyFrequency(f)) return daysElapsed;
             if (f.Contains("week"))
             {
                 double weeksElapsed = (double)daysElapsed / 7.0;
