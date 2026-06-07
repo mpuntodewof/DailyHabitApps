@@ -46,7 +46,7 @@ namespace AtomicHabits.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> VerifyTwoFactor([FromBody] VerifyTwoFactorDto dto, CancellationToken ct)
         {
-            var res = await _authService.VerifyTwoFactorAsync(dto.TwoFactorToken, dto.Code, HttpContext, ct);
+            var res = await _authService.VerifyTwoFactorAsync(dto.TwoFactorToken, dto.Code, dto.IsRecoveryCode, HttpContext, ct);
             return StatusCode((int)res.StatusCode, res);
         }
 

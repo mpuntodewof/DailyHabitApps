@@ -22,7 +22,7 @@ namespace AtomicHabits.Services
     {
         Task<ApiResponse> RegisterAsync(RegisterDto dto, HttpContext? ctx = null);
         Task<ApiResponse> LoginAsync(LoginDto dto, HttpContext? ctx = null);
-        Task<ApiResponse> VerifyTwoFactorAsync(string pendingToken, string code, HttpContext? ctx, CancellationToken ct);
+        Task<ApiResponse> VerifyTwoFactorAsync(string pendingToken, string code, bool isRecoveryCode, HttpContext? ctx, CancellationToken ct);
         Task<ApiResponse> ForgotPasswordAsync(ForgotPasswordDTO dto, CancellationToken cancellationToken);
         Task<ApiResponse> ResetPasswordAsync(ResetPasswordDTO dto, CancellationToken cancellationToken);
         Task<ApiResponse> RefreshTokenAsync(HttpContext? ctx, RefreshTokenDto? dto, CancellationToken ct);
@@ -165,7 +165,7 @@ namespace AtomicHabits.Services
             }
         }
 
-        public async Task<ApiResponse> VerifyTwoFactorAsync(string pendingToken, string code, HttpContext? ctx, CancellationToken ct)
+        public async Task<ApiResponse> VerifyTwoFactorAsync(string pendingToken, string code, bool isRecoveryCode, HttpContext? ctx, CancellationToken ct)
         {
             try
             {
@@ -180,7 +180,10 @@ namespace AtomicHabits.Services
                     };
                 }
 
-                if (!await _twoFactor.VerifyAsync(userId.Value, code, ct))
+                var verified = isRecoveryCode
+                    ? await _twoFactor.VerifyRecoveryCodeAsync(userId.Value, code, ct)
+                    : await _twoFactor.VerifyAsync(userId.Value, code, ct);
+                if (!verified)
                 {
                     return new ApiResponse
                     {
