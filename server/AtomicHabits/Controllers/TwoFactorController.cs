@@ -1,3 +1,4 @@
+using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
 using AtomicHabits.Services;
 using AtomicHabits.Utils;
@@ -61,6 +62,47 @@ namespace AtomicHabits.Controllers
 
             var res = await _service.DisableAsync(userId.Value, dto.Code, ct);
             return StatusCode((int)res.StatusCode, res);
+        }
+
+        [HttpPost("recovery-codes/regenerate")]
+        public async Task<IActionResult> RegenerateRecoveryCodes([FromBody] TwoFactorCodeDto dto, CancellationToken ct)
+        {
+            var userId = User.GetUserId();
+            if (userId is null) return Unauthorized();
+
+            // Require a current TOTP code — same authorization bar as disabling.
+            if (!await _service.VerifyAsync(userId.Value, dto.Code, ct))
+            {
+                return BadRequest(new ApiResponse
+                {
+                    IsSuccess = false,
+                    StatusCode = System.Net.HttpStatusCode.BadRequest,
+                    ErrorMessages = new List<string> { "Invalid code" }
+                });
+            }
+
+            var codes = await _service.GenerateRecoveryCodesAsync(userId.Value, ct);
+            return Ok(new ApiResponse
+            {
+                IsSuccess = true,
+                StatusCode = System.Net.HttpStatusCode.OK,
+                Result = new { recoveryCodes = codes }
+            });
+        }
+
+        [HttpGet("recovery-codes/count")]
+        public async Task<IActionResult> RecoveryCodesCount(CancellationToken ct)
+        {
+            var userId = User.GetUserId();
+            if (userId is null) return Unauthorized();
+
+            var remaining = await _service.CountRemainingRecoveryCodesAsync(userId.Value, ct);
+            return Ok(new ApiResponse
+            {
+                IsSuccess = true,
+                StatusCode = System.Net.HttpStatusCode.OK,
+                Result = new { remaining }
+            });
         }
     }
 }
