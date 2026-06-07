@@ -104,7 +104,14 @@ namespace AtomicHabits.Services
                     await _db.SaveChangesAsync();
                 }
 
-                return await IssueTokensAsync(user, ctx);
+                var result = await IssueTokensAsync(user, ctx);
+
+                // Commit the transaction so the new user, role assignment, and refresh token
+                // actually persist. Without this, the `using` disposes the open transaction and
+                // rolls everything back — the caller gets a valid token for a user that was never
+                // saved (identity ids are still consumed, which is why ids climb on each attempt).
+                await trx.CommitAsync();
+                return result;
             }
             catch (Exception ex)
             {
