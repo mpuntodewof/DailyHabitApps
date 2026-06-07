@@ -24,6 +24,7 @@ namespace AtomicHabits.Data
         public DbSet<UserTwoFactor> UserTwoFactors { get; set; }
         public DbSet<Tag> Tags { get; set; }
         public DbSet<HabitTag> HabitTags { get; set; }
+        public DbSet<TwoFactorRecoveryCode> TwoFactorRecoveryCodes { get; set; }
 
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -112,6 +113,10 @@ namespace AtomicHabits.Data
             modelBuilder.Entity<HabitTag>()
                 .HasIndex(ht => ht.TagId)
                 .HasDatabaseName("IX_HabitTags_TagId");
+
+            modelBuilder.Entity<TwoFactorRecoveryCode>()
+                .HasIndex(c => c.UserId)
+                .HasDatabaseName("IX_TwoFactorRecoveryCodes_UserId");
         }
     }
 }
