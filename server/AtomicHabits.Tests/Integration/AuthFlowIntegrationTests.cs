@@ -6,6 +6,10 @@ using Xunit;
 
 namespace AtomicHabits.Tests.Integration;
 
+// NOTE: tests in this class share one ApiFactory (IClassFixture) and therefore ONE SQLite
+// database. They stay isolated by using distinct emails per test. As more integration tests
+// are added here, switch to per-test DB isolation (e.g. IAsyncLifetime resetting the DB)
+// rather than relying on unique data — shared mutable state gets brittle at scale.
 public class AuthFlowIntegrationTests : IClassFixture<ApiFactory>
 {
     private readonly ApiFactory _factory;
@@ -29,6 +33,7 @@ public class AuthFlowIntegrationTests : IClassFixture<ApiFactory>
         login.StatusCode.Should().Be(HttpStatusCode.OK);
 
         var body = await login.Content.ReadFromJsonAsync<LoginEnvelope>();
+        body.Should().NotBeNull(); // guards a silent camelCase-deserialization mismatch
         body!.IsSuccess.Should().BeTrue();
         body.Result!.AccessToken.Should().NotBeNullOrWhiteSpace();
     }
@@ -48,9 +53,13 @@ public class AuthFlowIntegrationTests : IClassFixture<ApiFactory>
         });
 
         var body = await login.Content.ReadFromJsonAsync<LoginEnvelope>();
+        body.Should().NotBeNull();
         body!.IsSuccess.Should().BeFalse();
     }
 
+    // Mirrors the ApiResponse envelope. Property names map to the wire JSON via the API's
+    // camelCase policy (isSuccess / result / accessToken) — ASP.NET's default and set
+    // explicitly in the app's JSON options.
     private class LoginEnvelope
     {
         public bool IsSuccess { get; set; }
