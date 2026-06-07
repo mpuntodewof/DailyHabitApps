@@ -405,6 +405,39 @@ namespace AtomicHabits.Migrations
                     b.ToTable("Tags");
                 });
 
+            modelBuilder.Entity("AtomicHabits.Models.TwoFactorRecoveryCode", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("CodeHash")
+                        .IsRequired()
+                        .HasMaxLength(128)
+                        .HasColumnType("nvarchar(128)");
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<bool>("IsUsed")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTime?>("UsedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_TwoFactorRecoveryCodes_UserId");
+
+                    b.ToTable("TwoFactorRecoveryCodes");
+                });
+
             modelBuilder.Entity("AtomicHabits.Models.User", b =>
                 {
                     b.Property<int>("Id")
@@ -692,6 +725,17 @@ namespace AtomicHabits.Migrations
                 });
 
             modelBuilder.Entity("AtomicHabits.Models.Tag", b =>
+                {
+                    b.HasOne("AtomicHabits.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("AtomicHabits.Models.TwoFactorRecoveryCode", b =>
                 {
                     b.HasOne("AtomicHabits.Models.User", "User")
                         .WithMany()
