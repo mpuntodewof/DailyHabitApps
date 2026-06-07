@@ -255,7 +255,7 @@ Legend: ✅ working, ⚠️ working with known bugs, 🟡 partially built / sche
 ## 10. Platform / DevOps Roadmap
 
 - **Real CI/CD** — README mentions Jenkins + Docker but no `Dockerfile` / `Jenkinsfile` is present. Add multi-stage Dockerfiles for both projects, a pipeline (build → test → migrate → deploy), and a `docker-compose.yml` for local SQL Server + API + UI.
-- **Automated tests** — neither project has tests. Add xUnit + `WebApplicationFactory` integration tests; Vitest + React Testing Library for the UI.
+- **Automated tests** — ⏳ *backend started* (2026-06-07): `server/AtomicHabits.Tests` (xUnit + EF InMemory + SQLite + `WebApplicationFactory` + Moq). 24 tests cover `StreakCalculator`, `TwoFactorService` recovery codes, two regression guards (2FA pending-token, registration commit), register/login HTTP integration, and habit IDOR. **Still uncovered:** `HabitTrackingService` (duplicate-day, streak upsert), `DashboardService` heatmap buckets, the reminder dispatcher, and the **entire frontend** (no Vitest/RTL yet). See `docs/superpowers/plans/2026-06-07-backend-test-suite.md`.
 - **Observability** — structured logging (Serilog + Seq/ELK), OpenTelemetry traces, health-check endpoint.
 - **Centralized config / secrets** — Azure Key Vault or AWS Secrets Manager; remove `Trusted_Connection=True` localhost default in [appsettings.json](server/AtomicHabits/appsettings.json#L3).
 - **API versioning** — `/api/v1/...` before public release.
@@ -630,4 +630,22 @@ Frontend:
 Verification: backend `dotnet build` **0 errors**, frontend `npm run typecheck` ✓, `vite build` ✓, migration applied to the local DB. **Manual end-to-end (enable → capture → recovery-login → consume → regenerate) has NOT yet been run against the running app** — recommended before relying on it in production (no automated test harness exists in this repo).
 
 Deferred (non-blocking): per-attempt rate-limiting on recovery codes, audit logging, consolidating the double-save in `ConfirmEnrollmentAsync` — see the plan's follow-ups.
+
+### 2026-06-07 — Backend test suite (Platform/DevOps: automated tests)
+
+First automated tests for the backend. New `server/AtomicHabits.Tests` xUnit project (EF InMemory + SQLite + `WebApplicationFactory` + Moq), **24 tests, all green**. Plan: [docs/superpowers/plans/2026-06-07-backend-test-suite.md](docs/superpowers/plans/2026-06-07-backend-test-suite.md).
+
+Coverage:
+- **Unit** — [`StreakCalculator`](server/AtomicHabits/Utils/StreakCalculator.cs) (6 cases); [`TwoFactorService`](server/AtomicHabits/Services/TwoFactorService.cs) recovery-code lifecycle (SQLite-backed, since EF InMemory doesn't support `ExecuteUpdateAsync`); [`HabitService.HabitSummary`](server/AtomicHabits/Services/HabitService.cs) per-frequency math.
+- **Regression guards** — the two bugs found in last session's manual e2e: 2FA pending-token validation (`sub`→`NameIdentifier`, commit `f561677`) and registration transaction-commit (`bbaffa0`). Both fail if the fix is reverted.
+- **Integration (HTTP)** — register→login over a real `WebApplicationFactory` pipeline with SQLite; wrong-password rejection.
+- **Security (IDOR)** — user B cannot read user A's habits via a route id (JWT-derived ownership holds).
+
+Two further production fixes surfaced *by writing the tests* (each its own commit):
+- `dda4a18` — `ValidateTwoFactorPendingToken` had no `ClockSkew`, so the default 5 min let a 5-min pending token live ~10 min; aligned to `TimeSpan.Zero`.
+- `978091b` — `IsDailyHabit`/`ExpectedSessions` used `Contains("day")`, which misses the literal `"daily"` (the model's **default** `GoalFrequency`), silently excluding default habits from the today rate. Fixed via `IsDailyFrequency` + a guard test.
+
+Still uncovered (next): `HabitTrackingService` (duplicate-day, streak upsert), `DashboardService` heatmap buckets, the reminder dispatcher, and the **frontend** (no Vitest/RTL yet).
+
+Run the suite: `dotnet test server/AtomicHabits.sln`.
 
