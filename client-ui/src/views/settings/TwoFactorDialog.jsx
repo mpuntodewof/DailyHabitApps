@@ -135,7 +135,7 @@ const TwoFactorDialog = ({ open, mode, onClose, onChanged }) => {
                         variant="contained"
                         onClick={handleConfirm}
                         disabled={loading || code.length < 6}
-                        color={mode === 'enable' ? 'primary' : 'error'}
+                        color={mode === 'disable' ? 'error' : 'primary'}
                     >
                         {mode === 'enable' ? 'Enable' : (mode === 'regenerate' ? 'Regenerate' : 'Disable')}
                     </Button>
