@@ -35,7 +35,14 @@ public class TwoFactorServiceTests : IDisposable
 
         codes.Should().HaveCount(10);
         codes.Should().OnlyHaveUniqueItems();
-        codes.Should().AllSatisfy(c => c.Should().MatchRegex(@"^[0-9A-Z]{4}-[0-9A-Z]{4}-[0-9A-Z]{4}$"));
+        // Shape: XXXX-XXXX-XXXX, and every character is from the Crockford alphabet
+        // (0-9 A-Z minus the ambiguous I/L/O/U) — catches an accidental alphabet regression.
+        const string allowed = "0123456789ABCDEFGHJKMNPQRSTVWXYZ";
+        codes.Should().AllSatisfy(c =>
+        {
+            c.Should().MatchRegex(@"^.{4}-.{4}-.{4}$");
+            c.Replace("-", "").All(ch => allowed.Contains(ch)).Should().BeTrue();
+        });
         db.TwoFactorRecoveryCodes.Should().HaveCount(10);
         db.TwoFactorRecoveryCodes.Select(c => c.CodeHash)
             .Should().NotContain(codes.First());
@@ -78,9 +85,13 @@ public class TwoFactorServiceTests : IDisposable
     {
         var svc = NewService(out _);
         var first = await svc.GenerateRecoveryCodesAsync(_userId, CancellationToken.None);
-        await svc.GenerateRecoveryCodesAsync(_userId, CancellationToken.None);
+        var second = await svc.GenerateRecoveryCodesAsync(_userId, CancellationToken.None);
 
+        // old set is invalidated...
         (await svc.VerifyRecoveryCodeAsync(_userId, first.First(), CancellationToken.None)).Should().BeFalse();
-        (await svc.CountRemainingRecoveryCodesAsync(_userId, CancellationToken.None)).Should().Be(10);
+        // ...and the freshly issued set is usable
+        (await svc.VerifyRecoveryCodeAsync(_userId, second.First(), CancellationToken.None)).Should().BeTrue();
+        // count reflects the new set minus the one just consumed
+        (await svc.CountRemainingRecoveryCodesAsync(_userId, CancellationToken.None)).Should().Be(9);
     }
 }
