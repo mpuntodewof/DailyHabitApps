@@ -130,11 +130,16 @@ namespace AtomicHabits.Data
                 .HasIndex(g => g.UserId)
                 .HasDatabaseName("IX_Goals_UserId");
 
+            // Goal is reachable from User via two cascade paths: direct (User→Goal) and
+            // indirect (User→Vision→Goal). SQL Server rejects multiple enforced delete
+            // actions on the same table, so the Vision→Goal link must be NoAction to break
+            // the cycle. User deletion still cascades to Goals directly; deleting a Vision
+            // no longer auto-nulls its Goals' VisionId (handle in app code if needed).
             modelBuilder.Entity<Goal>()
                 .HasOne(g => g.Vision)
                 .WithMany(v => v.Goals)
                 .HasForeignKey(g => g.VisionId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.NoAction);
 
             modelBuilder.Entity<Milestone>()
                 .HasIndex(m => m.GoalId)
@@ -146,11 +151,25 @@ namespace AtomicHabits.Data
                 .HasForeignKey(m => m.GoalId)
                 .OnDelete(DeleteBehavior.Cascade);
 
+            // Milestone is reachable from User via Goal (cascade). Break the direct
+            // User→Milestone cascade path to avoid SQL Server multiple-cascade-paths.
+            // Rows are still cleaned up when the parent Goal is deleted.
+            modelBuilder.Entity<Milestone>()
+                .HasOne(m => m.User)
+                .WithMany()
+                .HasForeignKey(m => m.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
+
+            // Habit is reachable from User via two paths: direct (User→Habit cascade) and
+            // indirect (User→Goal→Milestone→Habit). SQL Server rejects multiple enforced
+            // delete actions on the same table, so the Milestone→Habit link must be NoAction
+            // to break the cycle. User deletion still cascades to Habits directly; deleting a
+            // Milestone no longer auto-nulls its Habits' MilestoneId (handle in app code if needed).
             modelBuilder.Entity<Habit>()
                 .HasOne(h => h.Milestone)
                 .WithMany(m => m.Habits)
                 .HasForeignKey(h => h.MilestoneId)
-                .OnDelete(DeleteBehavior.SetNull);
+                .OnDelete(DeleteBehavior.NoAction);
 
             modelBuilder.Entity<Habit>()
                 .HasIndex(h => h.MilestoneId)
@@ -165,6 +184,14 @@ namespace AtomicHabits.Data
                 .WithMany()
                 .HasForeignKey(s => s.HabitId)
                 .OnDelete(DeleteBehavior.Cascade);
+
+            // HabitSkip is reachable from User via Habit (cascade). Break the direct
+            // User→HabitSkip cascade path for the same reason; the Habit cascade covers cleanup.
+            modelBuilder.Entity<HabitSkip>()
+                .HasOne(s => s.User)
+                .WithMany()
+                .HasForeignKey(s => s.UserId)
+                .OnDelete(DeleteBehavior.NoAction);
         }
     }
 }
