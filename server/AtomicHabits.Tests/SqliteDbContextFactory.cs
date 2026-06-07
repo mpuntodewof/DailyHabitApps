@@ -30,6 +30,7 @@ public sealed class SqliteTestDb : IDisposable
 
     // A fresh context over the SAME connection/database — use to assert persistence
     // across a unit boundary without the first context's change-tracker masking a rollback.
+    // The caller owns the returned context and must dispose it (e.g. `using var v = db.NewContext();`).
     public AppDbContext NewContext()
     {
         var options = new DbContextOptionsBuilder<AppDbContext>()
@@ -38,9 +39,10 @@ public sealed class SqliteTestDb : IDisposable
         return new AppDbContext(options);
     }
 
+    // Null-safe so a double Dispose() is harmless.
     public void Dispose()
     {
-        Context.Dispose();
-        _connection.Dispose();
+        Context?.Dispose();
+        _connection?.Dispose();
     }
 }
