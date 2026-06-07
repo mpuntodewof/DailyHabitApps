@@ -50,10 +50,18 @@ namespace AtomicHabits.Repositories
                 {
                     if (isCompleted)
                     {
+                        // Exclude today's row: CreateTracking already called SaveChanges before
+                        // this upsert runs, so today's completed row is already in the DB.
+                        // Without this filter the query would always return today's row,
+                        // making the consecutive-day check (== date.AddDays(-1)) always false
+                        // and resetting CurrentStreak to 1 every day.
+                        // Use `< date` (strictly before today's midnight) rather than `!= date`
+                        // so the comparison translates cleanly in both SQL Server and SQLite.
                         var lastTracking = await _db.HabitTrackings
                             .Where(ht => ht.HabitId == dto.HabitId &&
                                          ht.UserId == dto.UserId &&
-                                         ht.IsCompleted)
+                                         ht.IsCompleted &&
+                                         ht.TrackingDate < date)   // exclude today's just-saved row
                             .OrderByDescending(ht => ht.TrackingDate)
                             .FirstOrDefaultAsync();
 
