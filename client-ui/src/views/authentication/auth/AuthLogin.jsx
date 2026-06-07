@@ -26,6 +26,7 @@ const AuthLogin = ({ title, subtitle, subtext }) => {
 
     const [twoFactorToken, setTwoFactorToken] = useState(null);
     const [twoFactorCode, setTwoFactorCode] = useState('');
+    const [useRecoveryCode, setUseRecoveryCode] = useState(false);
 
     useEffect(() => {
         if (!initializing && user) {
@@ -60,7 +61,7 @@ const AuthLogin = ({ title, subtitle, subtext }) => {
         e.preventDefault();
         setSubmitting(true);
         try {
-            await verifyTwoFactor(twoFactorToken, twoFactorCode.trim());
+            await verifyTwoFactor(twoFactorToken, twoFactorCode.trim(), useRecoveryCode);
             showSuccess('Login successful!');
             navigate('/dashboard', { replace: true, state: {} });
         } catch (err) {
@@ -72,6 +73,7 @@ const AuthLogin = ({ title, subtitle, subtext }) => {
     };
 
     if (twoFactorToken) {
+        const minLen = useRecoveryCode ? 12 : 6; // recovery codes are XXXX-XXXX-XXXX
         return (
             <form onSubmit={handleVerifyTwoFactor}>
                 {title ? (
@@ -80,7 +82,9 @@ const AuthLogin = ({ title, subtitle, subtext }) => {
                     </Typography>
                 ) : null}
                 <Typography variant="body1" mb={2}>
-                    Enter the 6-digit code from your authenticator app.
+                    {useRecoveryCode
+                        ? 'Enter one of your recovery codes.'
+                        : 'Enter the 6-digit code from your authenticator app.'}
                 </Typography>
                 <Stack spacing={2}>
                     <CustomTextField
@@ -88,7 +92,10 @@ const AuthLogin = ({ title, subtitle, subtext }) => {
                         variant="outlined"
                         fullWidth
                         autoFocus
-                        inputProps={{ inputMode: 'numeric', pattern: '[0-9]*', maxLength: 6 }}
+                        inputProps={useRecoveryCode
+                            ? { maxLength: 14 }
+                            : { inputMode: 'numeric', pattern: '[0-9]*', maxLength: 6 }}
+                        placeholder={useRecoveryCode ? 'XXXX-XXXX-XXXX' : ''}
                         value={twoFactorCode}
                         onChange={(e) => setTwoFactorCode(e.target.value)}
                     />
@@ -98,14 +105,22 @@ const AuthLogin = ({ title, subtitle, subtext }) => {
                         size="large"
                         fullWidth
                         type="submit"
-                        disabled={submitting || twoFactorCode.length < 6}
+                        disabled={submitting || twoFactorCode.trim().length < minLen}
                     >
                         Verify
                     </Button>
                     <Button
                         color="inherit"
                         size="small"
-                        onClick={() => { setTwoFactorToken(null); setTwoFactorCode(''); }}
+                        onClick={() => { setUseRecoveryCode((v) => !v); setTwoFactorCode(''); }}
+                        disabled={submitting}
+                    >
+                        {useRecoveryCode ? 'Use an authenticator code instead' : 'Use a recovery code instead'}
+                    </Button>
+                    <Button
+                        color="inherit"
+                        size="small"
+                        onClick={() => { setTwoFactorToken(null); setTwoFactorCode(''); setUseRecoveryCode(false); }}
                         disabled={submitting}
                     >
                         Cancel
