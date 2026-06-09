@@ -52,19 +52,17 @@ const HabitSummaryCards = ({ stats }) => {
         <Grid container spacing={3} sx={{ mb: 4, pt: 3 }}
         >
             {cards.map((card, index) => (
-                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }} key={index} sx={{ display: 'flex', justifyContent: 'center' }}>
+                <Grid size={{ xs: 12, sm: 6, md: 3, lg: 3 }} key={index} sx={{ display: 'flex' }}>
                     <Card
                         sx={{
                             p: 3,
-                            height: "120px",       // << FIXED HEIGHT
+                            height: "120px",       // fixed height keeps the 4 cards uniform
+                            width: "100%",          // fill the grid column (was a fixed 350px that broke the 4-across layout)
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "flex-start",
                             boxShadow: 2,
                             borderRadius: "12px",
-                            maxWidth: '350px',
-                            minWidth: '350px',
-
                         }}
                     >
                         <Stack direction="row" spacing={2} alignItems="center">
