@@ -111,6 +111,8 @@ namespace AtomicHabits.Controllers
                     u.Username,
                     u.Email,
                     u.AvatarUrl,
+                    u.PlanTier,
+                    u.SubscriptionStatus,
                     Roles = u.UserRoles!.Select(ur => ur.Role.Name).ToList()
                 })
                 .FirstOrDefaultAsync(ct);
@@ -135,7 +137,11 @@ namespace AtomicHabits.Controllers
                     user.Email,
                     user.AvatarUrl,
                     user.Roles,
-                    permissions
+                    permissions,
+                    planTier = user.PlanTier.ToString(),
+                    subscriptionStatus = user.SubscriptionStatus.ToString(),
+                    isPro = user.PlanTier == AtomicHabits.Models.PlanTier.Pro
+                            && user.SubscriptionStatus == AtomicHabits.Models.SubscriptionStatus.Active,
                 }
             });
         }
