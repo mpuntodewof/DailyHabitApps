@@ -5,14 +5,10 @@ import api from '../../api/axiosInstance';
 import { getAccessToken } from '../../utils/tokenUtils';
 
 // components
-const SalesOverview = lazy(() => import('./components/SalesOverview'));
-const ProductPerformance = lazy(() => import('./components/ProductPerformance'));
-const RecentTransactions = lazy(() => import('./components/RecentTransactions'));
-const YearlyBreakup = lazy(() => import('./components/YearlyBreakup'));
-const MonthlyEarnings = lazy(() => import('./components/MonthlyEarnings'));
 const TopCards = lazy(() => import('./components/TopCards'));
 const HabitCompletionRate = lazy(() => import('./components/habitCompletionRates/HabitCompletionRate'));
 const HabitHeatmapCalendar = lazy(() => import('./components/HabitHeatmapCalendar'));
+const DashboardInsights = lazy(() => import('./components/DashboardInsights'));
 
 const buildCurrentMonthHeatmap = (cells) => {
   if (!Array.isArray(cells)) return {};
@@ -51,7 +47,7 @@ const Dashboard = () => {
   }, []);
 
   return (
-    <PageContainer title="E-commerce Dashboard" description="E-commerce Dashboard">
+    <PageContainer title="Dashboard" description="Your habit overview">
       <Box>
         <Grid container spacing={4}>
           <Grid xs={12}>
@@ -60,9 +56,16 @@ const Dashboard = () => {
             </Suspense>
           </Grid>
 
-          <Grid item xs={12} sx={{ width: '100%' }}>
+          <Grid item xs={12} lg={8} sx={{ width: '100%' }}>
             <Suspense fallback={fallback}>
               <HabitCompletionRate />
+            </Suspense>
+          </Grid>
+
+          {/* Insights panel — Pro feature (free users see an upgrade prompt). */}
+          <Grid item xs={12} lg={4}>
+            <Suspense fallback={fallback}>
+              <DashboardInsights />
             </Suspense>
           </Grid>
 
@@ -71,43 +74,6 @@ const Dashboard = () => {
               <HabitHeatmapCalendar data={heatmapData} />
             </Suspense>
           </Grid>
-
-          <Grid xs={12} lg={4}>
-            <Grid container spacing={3}>
-              <Grid item xs={12}>
-                <Suspense fallback={fallback}>
-                  <YearlyBreakup />
-                </Suspense>
-              </Grid>
-
-              <Grid xs={12}>
-                <Suspense fallback={fallback}>
-                  <MonthlyEarnings />
-                </Suspense>
-              </Grid>
-
-              <Grid xs={12} lg={8}>
-                <Suspense fallback={fallback}>
-                  <SalesOverview />
-                </Suspense>
-              </Grid>
-            </Grid>
-          </Grid>
-
-
-
-          {/* <Grid xs={12} lg={8}>
-            <Suspense fallback={fallback}>
-              <ProductPerformance />
-            </Suspense>
-          </Grid>
-
-          <Grid xs={12} lg={4}>
-            <Suspense fallback={fallback}>
-              <RecentTransactions />
-            </Suspense>
-          </Grid> */}
-
         </Grid>
       </Box>
     </PageContainer>
