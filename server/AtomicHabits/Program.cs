@@ -57,6 +57,7 @@ builder.Services.AddScoped<IUserPreferencesService, UserPreferencesService>();
 builder.Services.AddScoped<IHabitReminderService, HabitReminderService>();
 builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
 builder.Services.AddScoped<ITagService, TagService>();
+builder.Services.AddScoped<IGoalFrameworkService, GoalFrameworkService>();
 #endregion
 
 #region Hosted Services
