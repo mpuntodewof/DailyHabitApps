@@ -2,8 +2,10 @@ using AtomicHabits.Data;
 using AtomicHabits.Models;
 using AtomicHabits.Utils;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Hosting;
 using System.Net;
 
 namespace AtomicHabits.Controllers
@@ -14,7 +16,12 @@ namespace AtomicHabits.Controllers
     public class SubscriptionController : ControllerBase
     {
         private readonly AppDbContext _db;
-        public SubscriptionController(AppDbContext db) => _db = db;
+        private readonly IWebHostEnvironment _env;
+        public SubscriptionController(AppDbContext db, IWebHostEnvironment env)
+        {
+            _db = db;
+            _env = env;
+        }
 
         public class SetPlanDto { public string Plan { get; set; } = "Free"; }
 
@@ -22,6 +29,9 @@ namespace AtomicHabits.Controllers
         [HttpPost("set-plan")]
         public async Task<IActionResult> SetPlan([FromBody] SetPlanDto dto, CancellationToken ct)
         {
+            if (!_env.IsDevelopment())
+                return NotFound(); // manual plan toggle is a dev-only bridge; Stripe drives prod
+
             var userId = User.GetUserId();
             if (userId is null) return Unauthorized();
 
