@@ -16,6 +16,7 @@ import {
   IconChartHistogram,
   IconShieldCog,
   IconTargetArrow,
+  IconBulb,
 } from '@tabler/icons-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -39,6 +40,11 @@ const menuItems = [
     title: 'Stats',
     icon: IconChartHistogram,
     href: '/stats'
+  },
+  {
+    title: 'Insights',
+    icon: IconBulb,
+    href: '/insights'
   },
   {
     title: 'Settings',
