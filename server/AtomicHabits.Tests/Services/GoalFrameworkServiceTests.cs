@@ -46,4 +46,52 @@ public class GoalFrameworkServiceTests
         var goal = db.Goals.Single();
         goal.VisionId.Should().BeNull(); // goal survives, FK nulled
     }
+
+    [Fact]
+    public async Task CreateGoal_defaults_status_Active_and_is_owner_scoped()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var res = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "Get a job" }, CancellationToken.None);
+        ((GoalDto)res.Result!).Status.Should().Be("Active");
+
+        var others = await svc.ListGoalsAsync(2, CancellationToken.None);
+        ((IEnumerable<GoalDto>)others.Result!).Should().BeEmpty();
+    }
+
+    [Fact]
+    public async Task CreateGoal_with_foreign_vision_is_rejected()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        // vision owned by user 2
+        var v = await svc.CreateVisionAsync(2, new VisionUpsertDto { Title = "theirs" }, CancellationToken.None);
+        var visionId = ((VisionDto)v.Result!).Id;
+
+        var res = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "G", VisionId = visionId }, CancellationToken.None);
+        res.IsSuccess.Should().BeFalse();
+        res.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task DeleteGoal_nulls_milestone_habits_and_removes_milestones()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var g = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "G" }, CancellationToken.None);
+        var goalId = ((GoalDto)g.Result!).Id;
+        var milestone = new Milestone { UserId = 1, GoalId = goalId, Title = "M" };
+        db.Milestones.Add(milestone);
+        await db.SaveChangesAsync();
+        var habit = new Habit { UserId = 1, Name = "H", Frequency = "Daily", MilestoneId = milestone.Id };
+        db.Habits.Add(habit);
+        await db.SaveChangesAsync();
+
+        var del = await svc.DeleteGoalAsync(1, goalId, CancellationToken.None);
+        del.IsSuccess.Should().BeTrue();
+
+        db.Goals.Should().BeEmpty();
+        db.Milestones.Should().BeEmpty();          // cascaded with goal
+        db.Habits.Single().MilestoneId.Should().BeNull(); // habit survives, FK nulled
+    }
 }

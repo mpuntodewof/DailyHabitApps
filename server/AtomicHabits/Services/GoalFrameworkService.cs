@@ -142,6 +142,11 @@ namespace AtomicHabits.Services
                 var habits = await _db.Habits.Where(h => h.MilestoneId != null && milestoneIds.Contains(h.MilestoneId!.Value)).ToListAsync(ct);
                 foreach (var h in habits) h.MilestoneId = null;
             }
+            // EF InMemory does NOT cascade-delete Milestones; remove them explicitly
+            // (also safer on SQL Server). FK_Milestones_Goals is Cascade on SQL Server.
+            var milestones = await _db.Milestones.Where(m => m.GoalId == goalId).ToListAsync(ct);
+            if (milestones.Count > 0) _db.Milestones.RemoveRange(milestones);
+
             _db.Goals.Remove(goal);
             await _db.SaveChangesAsync(ct);
             return Ok(new { goalId });
