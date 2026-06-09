@@ -20,7 +20,10 @@ const LEVEL_COLORS = ['#ebedf0', '#9be9a8', '#40c463', '#30a14e', '#216e39'];
 const CELL = 12;   // square size (px)
 const GAP = 3;     // gap between squares (px)
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const DAY_LABELS = ['', 'Mon', '', 'Wed', '', 'Fri', '']; // GitHub shows Mon/Wed/Fri only
+// One single-letter label per day (Sun→Sat) so all 7 rows are labeled without
+// crowding the 12px-tall rows. Full names live in DAY_NAMES for tooltips.
+const DAY_LABELS = ['S', 'M', 'T', 'W', 'T', 'F', 'S'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
 
 /**
  * Bucket cells into week-columns. Each column is a 7-slot array (index =
@@ -98,7 +101,7 @@ const ContributionHeatmap = ({ cells = [] }) => {
           <Box sx={{ overflowX: 'auto', pb: 1 }}>
             <Box sx={{ display: 'inline-block', minWidth: 'min-content' }}>
               {/* Month labels row */}
-              <Box sx={{ position: 'relative', height: 16, ml: `${28}px`, mb: '2px' }}>
+              <Box sx={{ position: 'relative', height: 16, ml: `${18}px`, mb: '2px' }}>
                 {monthSpans.map((m) => (
                   <Typography
                     key={`${m.label}-${m.colIndex}`}
@@ -119,12 +122,14 @@ const ContributionHeatmap = ({ cells = [] }) => {
               {/* Day labels (left) + grid */}
               <Box sx={{ display: 'flex' }}>
                 {/* day-of-week labels */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', width: 28, mr: '0px' }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', width: 18, mr: '0px' }}>
                   {DAY_LABELS.map((label, i) => (
-                    <Box key={i} sx={{ height: `${CELL}px`, mb: `${GAP}px`, display: 'flex', alignItems: 'center' }}>
-                      <Typography variant="caption" sx={{ fontSize: 10, color: 'text.secondary', lineHeight: 1 }}>
-                        {label}
-                      </Typography>
+                    <Box key={i} sx={{ height: `${CELL}px`, mb: `${GAP}px`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                      <Tooltip title={DAY_NAMES[i]} arrow placement="left">
+                        <Typography variant="caption" sx={{ fontSize: 10, color: 'text.secondary', lineHeight: 1, cursor: 'default' }}>
+                          {label}
+                        </Typography>
+                      </Tooltip>
                     </Box>
                   ))}
                 </Box>
