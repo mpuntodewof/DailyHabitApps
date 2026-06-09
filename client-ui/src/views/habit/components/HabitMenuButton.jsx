@@ -16,6 +16,7 @@ import ClearIcon from '@mui/icons-material/Clear';
 import ArchiveIcon from '@mui/icons-material/Archive';
 import UnarchiveIcon from '@mui/icons-material/Unarchive';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import { IconPlayerSkipForward } from '@tabler/icons-react';
 import { styled, alpha } from '@mui/material/styles';
 
 const StyledMenu = styled((props) => (
@@ -54,7 +55,7 @@ const Transition = forwardRef(function Transition(props, ref) {
     return <Slide direction="up" ref={ref} {...props} />;
 });
 
-const HabitMenuButton = ({ onEdit, onDelete, onArchive, onRestore, onReminders, isArchived = false }) => {
+const HabitMenuButton = ({ onEdit, onDelete, onArchive, onRestore, onReminders, onSkip, isArchived = false }) => {
     const [anchorEl, setAnchorEl] = useState(null);
     const [confirmOpen, setConfirmOpen] = useState(false);
     const open = Boolean(anchorEl);
@@ -112,6 +113,11 @@ const HabitMenuButton = ({ onEdit, onDelete, onArchive, onRestore, onReminders, 
                 {onReminders && (
                     <MenuItem onClick={() => { handleClose(); onReminders(); }} disableRipple>
                         <NotificationsIcon /> Reminders
+                    </MenuItem>
+                )}
+                {onSkip && (
+                    <MenuItem onClick={() => { handleClose(); onSkip(); }} disableRipple>
+                        <IconPlayerSkipForward size={18} style={{ marginRight: 12 }} /> Skip today
                     </MenuItem>
                 )}
                 {isArchived

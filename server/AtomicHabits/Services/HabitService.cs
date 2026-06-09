@@ -2,6 +2,7 @@
 using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
 using AtomicHabits.Repositories;
+using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Net;
 
@@ -16,6 +17,7 @@ namespace AtomicHabits.Services
         Task<ApiResponse> DeleteHabit(int habitId);
         Task<ApiResponse> HabitSummary(int userId);
         Task<ApiResponse> SetArchivedAsync(int habitId, int userId, bool archived, CancellationToken ct);
+        Task<ApiResponse> GetContributionAsync(int userId, int habitId);
     }
 
     public class HabitService : IHabitService
@@ -76,6 +78,14 @@ namespace AtomicHabits.Services
                     return _response;
                 }
 
+                if (habitDto.MilestoneId.HasValue && !await OwnsMilestone(habitDto.UserId, habitDto.MilestoneId.Value))
+                {
+                    _response.IsSuccess = false;
+                    _response.StatusCode = HttpStatusCode.BadRequest;
+                    _response.ErrorMessages = new List<string> { "Milestone not found or doesn't belong to user." };
+                    return _response;
+                }
+
                var createdHabit = await _repo.PostHabit(habitDto);
 
                 _response.IsSuccess = true;
@@ -103,6 +113,14 @@ namespace AtomicHabits.Services
                     _response.IsSuccess = false;
                     _response.StatusCode = HttpStatusCode.NotFound;
                     _response.ErrorMessages = new List<string> { "Habit not found." };
+                    return _response;
+                }
+
+                if (habitDto.MilestoneId.HasValue && !await OwnsMilestone(habit.UserId, habitDto.MilestoneId.Value))
+                {
+                    _response.IsSuccess = false;
+                    _response.StatusCode = HttpStatusCode.BadRequest;
+                    _response.ErrorMessages = new List<string> { "Milestone not found or doesn't belong to user." };
                     return _response;
                 }
 
@@ -270,6 +288,51 @@ namespace AtomicHabits.Services
                 return _response;
             }
         }
+
+        public async Task<ApiResponse> GetContributionAsync(int userId, int habitId)
+        {
+            try
+            {
+                // Owner-scoped read; null-safe navigation across Habit->Milestone->Goal->Vision.
+                // EF translates the projection into the necessary joins (no Include needed).
+                var contribution = await _db.Habits
+                    .Where(h => h.Id == habitId && h.UserId == userId)
+                    .Select(h => new HabitContributionDto
+                    {
+                        MilestoneId = h.MilestoneId,
+                        MilestoneTitle = h.Milestone != null ? h.Milestone.Title : null,
+                        GoalTitle = (h.Milestone != null && h.Milestone.Goal != null) ? h.Milestone.Goal.Title : null,
+                        VisionTitle = (h.Milestone != null && h.Milestone.Goal != null && h.Milestone.Goal.Vision != null)
+                            ? h.Milestone.Goal.Vision.Title
+                            : null,
+                    })
+                    .FirstOrDefaultAsync();
+
+                if (contribution == null)
+                {
+                    _response.IsSuccess = false;
+                    _response.StatusCode = HttpStatusCode.NotFound;
+                    _response.ErrorMessages = new List<string> { "Habit not found or doesn't belong to user." };
+                    return _response;
+                }
+
+                _response.IsSuccess = true;
+                _response.StatusCode = HttpStatusCode.OK;
+                _response.Result = contribution;
+                return _response;
+            }
+            catch (Exception ex)
+            {
+                _log.LogError(ex, "[HabitService.GetContributionAsync] Error");
+                _response.IsSuccess = false;
+                _response.StatusCode = HttpStatusCode.InternalServerError;
+                _response.ErrorMessages = new List<string> { "Get habit contribution error: " + ex.Message };
+                return _response;
+            }
+        }
+
+        private Task<bool> OwnsMilestone(int userId, int milestoneId) =>
+            _db.Milestones.AnyAsync(m => m.Id == milestoneId && m.UserId == userId);
 
         private static DateTime StartOfIsoWeek(DateTime today)
         {

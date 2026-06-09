@@ -74,6 +74,29 @@ Keep the new entities named `Vision`/`Goal`/`Milestone` to avoid collision.
 - One EF migration adds the four tables + `Habit.MilestoneId`. Additive only —
   no data backfill required.
 
+### Delete behavior (revised during implementation, 2026-06-07)
+
+SQL Server forbids multiple cascade/delete-action paths to the same table, so
+the originally-planned `SetNull` on `Habit.MilestoneId` and `Goal.VisionId`
+could not be used as-is (they created cycles with the `User→Goal→Milestone→Habit`
+and `User→Vision→Goal` cascade chains). The shipped FK delete rules are:
+
+- `Goal.UserId` → Cascade; `Goal.VisionId` → **NoAction**
+- `Milestone.UserId` → **NoAction**; `Milestone.GoalId` → Cascade
+- `Habit.MilestoneId` → **NoAction** (was SetNull)
+- `HabitSkip.UserId` → **NoAction**; `HabitSkip.HabitId` → Cascade
+
+Rationale: keep the `User→Goal`/`User→Habit` cascades intact so **account
+deletion still cleans up all child rows** (a GDPR requirement). The cost: the
+DB no longer auto-nulls children when a `Vision`/`Milestone` is deleted directly.
+
+**Forward constraint for Plan 2 (CRUD endpoints):** the Goal/Milestone/Vision
+**delete** operations MUST, in application code, first null-out or reassign
+dependent rows (e.g. set `Habit.MilestoneId = null` for habits under a milestone
+being deleted; set `Goal.VisionId = null` for goals under a vision) — otherwise
+the delete throws an FK-constraint error. This is now a tested requirement of
+those endpoints, not optional.
+
 ---
 
 ## 2. Goal → Habit Framework (FREE)

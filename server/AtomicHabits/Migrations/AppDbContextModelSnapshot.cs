@@ -22,6 +22,44 @@ namespace AtomicHabits.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("AtomicHabits.Models.Goal", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<DateTime?>("TargetDate")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.Property<int?>("VisionId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_Goals_UserId");
+
+                    b.HasIndex("VisionId");
+
+                    b.ToTable("Goals");
+                });
+
             modelBuilder.Entity("AtomicHabits.Models.Habit", b =>
                 {
                     b.Property<int>("Id")
@@ -60,6 +98,9 @@ namespace AtomicHabits.Migrations
                     b.Property<bool>("IsArchived")
                         .HasColumnType("bit");
 
+                    b.Property<int?>("MilestoneId")
+                        .HasColumnType("int");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -72,6 +113,9 @@ namespace AtomicHabits.Migrations
                         .HasColumnType("int");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("MilestoneId")
+                        .HasDatabaseName("IX_Habits_MilestoneId");
 
                     b.HasIndex("UserId", "IsArchived")
                         .HasDatabaseName("IX_Habits_UserId_IsArchived");
@@ -111,6 +155,39 @@ namespace AtomicHabits.Migrations
                         .HasDatabaseName("IX_HabitReminders_IsEnabled_LastFiredOn");
 
                     b.ToTable("HabitReminders");
+                });
+
+            modelBuilder.Entity("AtomicHabits.Models.HabitSkip", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<DateOnly>("Date")
+                        .HasColumnType("date");
+
+                    b.Property<int>("HabitId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Reason")
+                        .HasColumnType("int");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("HabitId");
+
+                    b.HasIndex("UserId", "HabitId", "Date")
+                        .HasDatabaseName("IX_HabitSkips_UserId_HabitId_Date");
+
+                    b.ToTable("HabitSkips");
                 });
 
             modelBuilder.Entity("AtomicHabits.Models.HabitTag", b =>
@@ -197,6 +274,44 @@ namespace AtomicHabits.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("JwtKeys");
+                });
+
+            modelBuilder.Entity("AtomicHabits.Models.Milestone", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<int>("GoalId")
+                        .HasColumnType("int");
+
+                    b.Property<int>("OrderIndex")
+                        .HasColumnType("int");
+
+                    b.Property<int>("Status")
+                        .HasColumnType("int");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("GoalId")
+                        .HasDatabaseName("IX_Milestones_GoalId");
+
+                    b.HasIndex("UserId");
+
+                    b.ToTable("Milestones");
                 });
 
             modelBuilder.Entity("AtomicHabits.Models.Module", b =>
@@ -604,13 +719,68 @@ namespace AtomicHabits.Migrations
                     b.ToTable("UserTwoFactors");
                 });
 
+            modelBuilder.Entity("AtomicHabits.Models.Vision", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<DateTime>("CreatedAt")
+                        .HasColumnType("datetime2");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasMaxLength(120)
+                        .HasColumnType("nvarchar(120)");
+
+                    b.Property<int>("UserId")
+                        .HasColumnType("int");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("UserId")
+                        .HasDatabaseName("IX_Visions_UserId");
+
+                    b.ToTable("Visions");
+                });
+
+            modelBuilder.Entity("AtomicHabits.Models.Goal", b =>
+                {
+                    b.HasOne("AtomicHabits.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AtomicHabits.Models.Vision", "Vision")
+                        .WithMany("Goals")
+                        .HasForeignKey("VisionId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
+                    b.Navigation("User");
+
+                    b.Navigation("Vision");
+                });
+
             modelBuilder.Entity("AtomicHabits.Models.Habit", b =>
                 {
+                    b.HasOne("AtomicHabits.Models.Milestone", "Milestone")
+                        .WithMany("Habits")
+                        .HasForeignKey("MilestoneId")
+                        .OnDelete(DeleteBehavior.NoAction);
+
                     b.HasOne("AtomicHabits.Models.User", "User")
                         .WithMany("Habits")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
+
+                    b.Navigation("Milestone");
 
                     b.Navigation("User");
                 });
@@ -624,6 +794,25 @@ namespace AtomicHabits.Migrations
                         .IsRequired();
 
                     b.Navigation("Habit");
+                });
+
+            modelBuilder.Entity("AtomicHabits.Models.HabitSkip", b =>
+                {
+                    b.HasOne("AtomicHabits.Models.Habit", "Habit")
+                        .WithMany()
+                        .HasForeignKey("HabitId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AtomicHabits.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Habit");
+
+                    b.Navigation("User");
                 });
 
             modelBuilder.Entity("AtomicHabits.Models.HabitTag", b =>
@@ -660,6 +849,25 @@ namespace AtomicHabits.Migrations
                         .IsRequired();
 
                     b.Navigation("Habit");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("AtomicHabits.Models.Milestone", b =>
+                {
+                    b.HasOne("AtomicHabits.Models.Goal", "Goal")
+                        .WithMany("Milestones")
+                        .HasForeignKey("GoalId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("AtomicHabits.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.NoAction)
+                        .IsRequired();
+
+                    b.Navigation("Goal");
 
                     b.Navigation("User");
                 });
@@ -787,6 +995,22 @@ namespace AtomicHabits.Migrations
                     b.Navigation("User");
                 });
 
+            modelBuilder.Entity("AtomicHabits.Models.Vision", b =>
+                {
+                    b.HasOne("AtomicHabits.Models.User", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("AtomicHabits.Models.Goal", b =>
+                {
+                    b.Navigation("Milestones");
+                });
+
             modelBuilder.Entity("AtomicHabits.Models.Habit", b =>
                 {
                     b.Navigation("HabitReminders");
@@ -797,6 +1021,11 @@ namespace AtomicHabits.Migrations
 
                     b.Navigation("Streak")
                         .IsRequired();
+                });
+
+            modelBuilder.Entity("AtomicHabits.Models.Milestone", b =>
+                {
+                    b.Navigation("Habits");
                 });
 
             modelBuilder.Entity("AtomicHabits.Models.Module", b =>
@@ -832,6 +1061,11 @@ namespace AtomicHabits.Migrations
                     b.Navigation("Streaks");
 
                     b.Navigation("UserRoles");
+                });
+
+            modelBuilder.Entity("AtomicHabits.Models.Vision", b =>
+                {
+                    b.Navigation("Goals");
                 });
 #pragma warning restore 612, 618
         }

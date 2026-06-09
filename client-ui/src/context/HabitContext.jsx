@@ -119,6 +119,11 @@ export const HabitProvider = ({ children }) => {
     }
   };
 
+  const skipHabit = useCallback(async (habitId, reason, date = null) => {
+    const res = await api.post('/HabitSkip', { habitId, reason, date });
+    return res.data?.result;
+  }, []);
+
   const deleteHabit = async (id) => {
     try {
       const res = await api.delete(`/Habit/delete-habit/${id}`);
@@ -138,7 +143,7 @@ export const HabitProvider = ({ children }) => {
   }
 
   return (
-    <HabitContext.Provider value={{ habits, loading, pagination, fetchHabits, searchHabits, createHabit, updateHabit, deleteHabit, archiveHabit, restoreHabit }}>
+    <HabitContext.Provider value={{ habits, loading, pagination, fetchHabits, searchHabits, createHabit, updateHabit, deleteHabit, archiveHabit, restoreHabit, skipHabit }}>
       {children}
     </HabitContext.Provider>
   );

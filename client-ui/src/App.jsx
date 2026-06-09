@@ -9,6 +9,7 @@ import { SnackbarProvider } from './context/SnackbarContext';
 import { HabitTrackingProvider } from './context/HabitTrackingContext';
 import { UserPreferencesProvider, useUserPreferences } from './context/UserPreferencesContext';
 import { TagProvider } from './context/TagContext';
+import { GoalProvider } from './context/GoalContext';
 
 const ThemedRoutes = () => {
   const { prefs } = useUserPreferences();
@@ -18,11 +19,13 @@ const ThemedRoutes = () => {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <TagProvider>
-        <HabitProvider>
-          <HabitTrackingProvider>
-            <RouterProvider router={router} />
-          </HabitTrackingProvider>
-        </HabitProvider>
+        <GoalProvider>
+          <HabitProvider>
+            <HabitTrackingProvider>
+              <RouterProvider router={router} />
+            </HabitTrackingProvider>
+          </HabitProvider>
+        </GoalProvider>
       </TagProvider>
     </ThemeProvider>
   );

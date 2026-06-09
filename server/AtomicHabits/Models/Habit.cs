@@ -1,5 +1,6 @@
 ﻿using System.ComponentModel.DataAnnotations;
 using System.ComponentModel.DataAnnotations.Schema;
+using System.Text.Json.Serialization;
 
 namespace AtomicHabits.Models
 {
@@ -32,6 +33,10 @@ namespace AtomicHabits.Models
         [MaxLength(20)]
         public string GoalFrequency { get; set; } = "daily"; // ['Daily', 'Weekly', 'Monthly']
 
+        // Optional link to the Goal→Milestone→Habit hierarchy. Nullable on purpose:
+        // existing/unlinked habits keep working; linkage is progressive.
+        public int? MilestoneId { get; set; }
+
         // Archive
         public bool IsArchived { get; set; } = false;
 
@@ -47,5 +52,9 @@ namespace AtomicHabits.Models
         public Streak Streak { get; set; }
         public ICollection<HabitTracking> HabitTrackings { get; set; }
         public ICollection<HabitTag> HabitTags { get; set; } = new List<HabitTag>();
+
+        [ForeignKey("MilestoneId")]
+        [JsonIgnore]
+        public Milestone? Milestone { get; set; }
     }
 }

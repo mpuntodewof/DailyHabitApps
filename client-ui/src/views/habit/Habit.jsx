@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useSnackbar } from '../../context/SnackbarContext';
 import { useHabitTracking } from '../../context/HabitTrackingContext';
 import { useTags } from '../../context/TagContext';
+import api from '../../api/axiosInstance';
 import CircleCheckedFilled from '@mui/icons-material/CheckCircle';
 import CircleUnchecked from '@mui/icons-material/RadioButtonUnchecked';
 
@@ -17,6 +18,7 @@ import PageContainer from "../../components/container/PageContainer";
 import HabitDialogForm from './components/HabitDialogForm';
 import HabitTimeDialog from './components/HabitTimeDialog';
 import HabitRemindersDialog from './components/HabitRemindersDialog';
+import SkipHabitDialog from './components/SkipHabitDialog';
 
 
 const Habit = () => {
@@ -33,6 +35,7 @@ const Habit = () => {
     const pageSize = 20;
 
     const [reminderDialog, setReminderDialog] = useState({ open: false, habitId: null, habitName: '' });
+    const [skipTarget, setSkipTarget] = useState(null);
 
     const handleOpen = () => setOpen(true);
     const [openTrackingDialog, setOpenTrackingDialog] = useState(false);
@@ -43,6 +46,7 @@ const Habit = () => {
     const [selectedHabit, setSelectedHabit] = useState(null);
     const [selectedCardHabit, setSelectedCardHabit] = useState(null);
     const [habitStats, setHabitStats] = useState({});
+    const [contributions, setContributions] = useState({}); // habitId -> HabitContributionDto
 
 
     useEffect(() => {
@@ -76,6 +80,29 @@ const Habit = () => {
 
         fetchAllStats();
     }, [habits?.result, getHabitStats, user?.sub]);
+
+    // Fetch the goal/milestone payoff line, only for habits linked to a milestone.
+    useEffect(() => {
+        if (!habits?.result || habits.result.length === 0) return;
+        const linked = habits.result.filter((h) => h.milestoneId);
+        if (linked.length === 0) return;
+
+        let cancelled = false;
+        const fetchContributions = async () => {
+            const map = {};
+            for (const habit of linked) {
+                try {
+                    const res = await api.get(`/Habit/${habit.id}/contribution`);
+                    if (res.data?.result) map[habit.id] = res.data.result;
+                } catch (e) {
+                    console.error('Error fetching contribution for habit', habit.id, e);
+                }
+            }
+            if (!cancelled) setContributions(map);
+        };
+        fetchContributions();
+        return () => { cancelled = true; };
+    }, [habits?.result]);
 
     const habitSummaryStats = {
         todaySummary: { habitsToday: 5, completedToday: 2, todayCompletionRate: 40 },
@@ -323,6 +350,13 @@ const Habit = () => {
                                                 <Typography variant="body1" color="text.secondary" sx={{ mb: 1 }}>
                                                     {habit.description}
                                                 </Typography>
+                                                {contributions[habit.id] && (
+                                                    <Typography variant="body2" color="text.disabled" sx={{ mb: 1, fontStyle: 'italic' }}>
+                                                        Contributes to: {contributions[habit.id].goalTitle
+                                                            || contributions[habit.id].milestoneTitle
+                                                            || contributions[habit.id].visionTitle}
+                                                    </Typography>
+                                                )}
                                                 {Array.isArray(habit.habitTags) && habit.habitTags.length > 0 && (
                                                     <Stack direction="row" spacing={0.5} sx={{ mt: 0.5, flexWrap: 'wrap', gap: 0.5 }} onClick={(e) => e.stopPropagation()}>
                                                         {habit.habitTags.map((ht) => (
@@ -347,6 +381,7 @@ const Habit = () => {
                                                     onArchive={() => handleArchiveHabit(habit.id)}
                                                     onRestore={() => handleRestoreHabit(habit.id)}
                                                     onReminders={() => setReminderDialog({ open: true, habitId: habit.id, habitName: habit.name })}
+                                                    onSkip={() => setSkipTarget(habit)}
                                                     isArchived={!!habit.isArchived}
                                                 />
                                             </Box>
@@ -431,6 +466,12 @@ const Habit = () => {
                     habitId={reminderDialog.habitId}
                     habitName={reminderDialog.habitName}
                     onClose={() => setReminderDialog({ open: false, habitId: null, habitName: '' })}
+                />
+
+                <SkipHabitDialog
+                    open={!!skipTarget}
+                    habit={skipTarget}
+                    onClose={() => setSkipTarget(null)}
                 />
 
             </Box >

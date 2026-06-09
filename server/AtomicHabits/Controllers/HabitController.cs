@@ -121,5 +121,16 @@ namespace AtomicHabits.Controllers
             return StatusCode((int)res.StatusCode, res);
         }
 
+        [Authorize]
+        [HttpGet("{habitId}/contribution")]
+        public async Task<IActionResult> GetContribution(int habitId, CancellationToken ct)
+        {
+            var authUserId = User.GetUserId();
+            if (authUserId is null) return Unauthorized();
+
+            var res = await _habitService.GetContributionAsync(authUserId.Value, habitId);
+            return StatusCode((int)res.StatusCode, res);
+        }
+
     }
 }
