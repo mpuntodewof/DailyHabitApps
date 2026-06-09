@@ -7,38 +7,22 @@ import { getAccessToken } from '../../utils/tokenUtils';
 // components
 const TopCards = lazy(() => import('./components/TopCards'));
 const HabitCompletionRate = lazy(() => import('./components/habitCompletionRates/HabitCompletionRate'));
-const HabitHeatmapCalendar = lazy(() => import('./components/HabitHeatmapCalendar'));
+const ContributionHeatmap = lazy(() => import('./components/ContributionHeatmap'));
 const DashboardInsights = lazy(() => import('./components/DashboardInsights'));
-
-const buildCurrentMonthHeatmap = (cells) => {
-  if (!Array.isArray(cells)) return {};
-
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = now.getMonth() + 1;
-  const result = {};
-
-  for (const cell of cells) {
-    const d = new Date(cell.date);
-    if (d.getFullYear() === year && d.getMonth() + 1 === month) {
-      result[d.getDate()] = cell.intensity ?? 0;
-    }
-  }
-  return result;
-};
 
 const Dashboard = () => {
   const fallback = <Skeleton variant="rectangular" height={200} animation="wave" />;
-  const [heatmapData, setHeatmapData] = useState({});
+  const [heatmapCells, setHeatmapCells] = useState([]);
 
   useEffect(() => {
     if (!getAccessToken()) return;
     let cancelled = false;
     (async () => {
       try {
-        const res = await api.get('/Dashboard/heatmap', { params: { days: 90 } });
+        // Full trailing year, GitHub-style contribution graph.
+        const res = await api.get('/Dashboard/heatmap', { params: { days: 365 } });
         if (cancelled) return;
-        setHeatmapData(buildCurrentMonthHeatmap(res.data?.result?.cells));
+        setHeatmapCells(res.data?.result?.cells || []);
       } catch (err) {
         console.error('Failed to load heatmap:', err.message);
       }
@@ -71,7 +55,7 @@ const Dashboard = () => {
 
           <Grid item xs={12} sx={{ width: '100%' }}>
             <Suspense fallback={fallback}>
-              <HabitHeatmapCalendar data={heatmapData} />
+              <ContributionHeatmap cells={heatmapCells} />
             </Suspense>
           </Grid>
         </Grid>
