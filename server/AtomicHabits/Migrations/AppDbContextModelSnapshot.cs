@@ -588,6 +588,12 @@ namespace AtomicHabits.Migrations
                     b.Property<DateTime?>("ResetTokenExpiry")
                         .HasColumnType("datetime2");
 
+                    b.Property<string>("StripeCustomerId")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("StripeSubscriptionId")
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("SubscriptionStatus")
                         .HasColumnType("int");
 
