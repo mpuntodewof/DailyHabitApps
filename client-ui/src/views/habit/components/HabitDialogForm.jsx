@@ -22,12 +22,15 @@ import { IconX } from '@tabler/icons-react';
 import { useCallback, useEffect, useState } from 'react';
 import dayjs from 'dayjs';
 import { useAuth } from '../../../context/AuthContext';
+import { useGoals } from '../../../context/GoalContext';
 import { useNavigate } from 'react-router';
 
 
 const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode }) => {
     const { user } = useAuth(); // Get user from AuthContext
+    const { goals, listMilestones } = useGoals();
     const [selectedColor, setSelectedColor] = useState('');
+    const [milestoneOptions, setMilestoneOptions] = useState([]); // [{ id, label }]
     const navigate = useNavigate();
     const [formData, setFormData] = useState({
         userId: 0,
@@ -66,6 +69,27 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode }) => {
         }
     }, [habit, open]);
 
+    // Build the flattened "Goal › Milestone" option list when the form opens.
+    useEffect(() => {
+        if (!open) return;
+        let cancelled = false;
+        const buildOptions = async () => {
+            try {
+                const lists = await Promise.all(
+                    (goals || []).map(async (g) => {
+                        const ms = await listMilestones(g.id);
+                        return ms.map((m) => ({ id: m.id, label: `${g.title} › ${m.title}` }));
+                    })
+                );
+                if (!cancelled) setMilestoneOptions(lists.flat());
+            } catch (err) {
+                if (!cancelled) setMilestoneOptions([]);
+            }
+        };
+        buildOptions();
+        return () => { cancelled = true; };
+    }, [open, goals, listMilestones]);
+
     const handleChange = (field, value) => {
         setFormData(prev => ({ ...prev, [field]: value }));
     };
@@ -76,6 +100,7 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode }) => {
         const payload = {
             ...formData,
             color: selectedColor,
+            milestoneId: formData.milestoneId ? Number(formData.milestoneId) : null,
             createdAt: isEditMode ? dayjs(formData.createdAt).toISOString() : dateTimeNow,
             updatedAt: dateTimeNow
         }
@@ -231,6 +256,28 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode }) => {
                                     <MenuItem value="Weekly">Weekly</MenuItem>
                                     <MenuItem value="Monthly">Monthly</MenuItem>
                                     <MenuItem value="Custom">Custom</MenuItem>
+                                </Select>
+                            </FormControl>
+                        </Grid>
+
+                        {/* Contributes To (milestone link) */}
+                        <Grid item xs={12} width="100%">
+                            <Typography variant="body2" color="text.secondary" mb={1} fontWeight="medium">
+                                CONTRIBUTES TO
+                            </Typography>
+                            <FormControl fullWidth size="medium">
+                                <InputLabel id="contributes-to-label">Contributes to</InputLabel>
+                                <Select
+                                    labelId="contributes-to-label"
+                                    label="Contributes to"
+                                    sx={{ backgroundColor: '#f8f9fa' }}
+                                    value={formData.milestoneId ?? ''}
+                                    onChange={e => handleChange('milestoneId', e.target.value)}
+                                >
+                                    <MenuItem value="">None</MenuItem>
+                                    {milestoneOptions.map((opt) => (
+                                        <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>
+                                    ))}
                                 </Select>
                             </FormControl>
                         </Grid>
