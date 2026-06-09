@@ -64,6 +64,7 @@ builder.Services.AddScoped<IInsightService, InsightService>();
 builder.Services.AddScoped<IWeeklyReportService, WeeklyReportService>();
 builder.Services.AddScoped<IStripeGateway, StripeGateway>();
 builder.Services.AddScoped<IBillingService, BillingService>();
+builder.Services.AddScoped<IStripeWebhookHandler, StripeWebhookHandler>();
 #endregion
 
 #region Hosted Services
