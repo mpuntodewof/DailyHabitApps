@@ -123,7 +123,12 @@ namespace AtomicHabits.Services
 
             if (!string.IsNullOrWhiteSpace(dto.Title)) goal.Title = dto.Title.Trim();
             goal.VisionId = dto.VisionId;
-            if (!string.IsNullOrWhiteSpace(dto.Status)) goal.Status = ParseGoalStatus(dto.Status);
+            if (!string.IsNullOrWhiteSpace(dto.Status))
+            {
+                var parsed = TryParseGoalStatus(dto.Status);
+                if (parsed is null) return BadRequest("Invalid status");
+                goal.Status = parsed.Value;
+            }
             goal.TargetDate = dto.TargetDate;
             await _db.SaveChangesAsync(ct);
             return Ok(ToGoalDto(goal));
@@ -136,15 +141,15 @@ namespace AtomicHabits.Services
 
             // Milestones cascade with the goal, but habits under those milestones do NOT
             // auto-null (FK_Habits_Milestones is NoAction). Null them first.
-            var milestoneIds = await _db.Milestones.Where(m => m.GoalId == goalId).Select(m => m.Id).ToListAsync(ct);
+            var milestoneIds = await _db.Milestones.Where(m => m.GoalId == goalId && m.UserId == userId).Select(m => m.Id).ToListAsync(ct);
             if (milestoneIds.Count > 0)
             {
-                var habits = await _db.Habits.Where(h => h.MilestoneId != null && milestoneIds.Contains(h.MilestoneId!.Value)).ToListAsync(ct);
+                var habits = await _db.Habits.Where(h => h.MilestoneId != null && milestoneIds.Contains(h.MilestoneId!.Value) && h.UserId == userId).ToListAsync(ct);
                 foreach (var h in habits) h.MilestoneId = null;
             }
             // EF InMemory does NOT cascade-delete Milestones; remove them explicitly
             // (also safer on SQL Server). FK_Milestones_Goals is Cascade on SQL Server.
-            var milestones = await _db.Milestones.Where(m => m.GoalId == goalId).ToListAsync(ct);
+            var milestones = await _db.Milestones.Where(m => m.GoalId == goalId && m.UserId == userId).ToListAsync(ct);
             if (milestones.Count > 0) _db.Milestones.RemoveRange(milestones);
 
             _db.Goals.Remove(goal);
@@ -193,7 +198,12 @@ namespace AtomicHabits.Services
             var m = await _db.Milestones.FirstOrDefaultAsync(x => x.Id == milestoneId && x.UserId == userId, ct);
             if (m == null) return NotFound("Milestone not found");
             if (!string.IsNullOrWhiteSpace(dto.Title)) m.Title = dto.Title.Trim();
-            if (!string.IsNullOrWhiteSpace(dto.Status)) m.Status = ParseMilestoneStatus(dto.Status);
+            if (!string.IsNullOrWhiteSpace(dto.Status))
+            {
+                var parsed = TryParseMilestoneStatus(dto.Status);
+                if (parsed is null) return BadRequest("Invalid status");
+                m.Status = parsed.Value;
+            }
             m.OrderIndex = dto.OrderIndex;
             await _db.SaveChangesAsync(ct);
             return Ok(ToMilestoneDto(m));
@@ -205,7 +215,7 @@ namespace AtomicHabits.Services
             if (m == null) return NotFound("Milestone not found");
 
             // FK_Habits_Milestones is NoAction — null linked habits before delete.
-            var habits = await _db.Habits.Where(h => h.MilestoneId == milestoneId).ToListAsync(ct);
+            var habits = await _db.Habits.Where(h => h.MilestoneId == milestoneId && h.UserId == userId).ToListAsync(ct);
             foreach (var h in habits) h.MilestoneId = null;
 
             _db.Milestones.Remove(m);
@@ -220,6 +230,8 @@ namespace AtomicHabits.Services
         };
         private static GoalStatus ParseGoalStatus(string? s) =>
             Enum.TryParse<GoalStatus>(s, true, out var v) ? v : GoalStatus.Active;
+        private static GoalStatus? TryParseGoalStatus(string? s) =>
+            Enum.TryParse<GoalStatus>(s, true, out var v) ? v : (GoalStatus?)null;
 
         private static MilestoneDto ToMilestoneDto(Milestone m) => new()
         {
@@ -227,6 +239,8 @@ namespace AtomicHabits.Services
         };
         private static MilestoneStatus ParseMilestoneStatus(string? s) =>
             Enum.TryParse<MilestoneStatus>(s, true, out var v) ? v : MilestoneStatus.Active;
+        private static MilestoneStatus? TryParseMilestoneStatus(string? s) =>
+            Enum.TryParse<MilestoneStatus>(s, true, out var v) ? v : (MilestoneStatus?)null;
 
         private static ApiResponse Ok(object result, HttpStatusCode status = HttpStatusCode.OK) =>
             new() { IsSuccess = true, StatusCode = status, Result = result };

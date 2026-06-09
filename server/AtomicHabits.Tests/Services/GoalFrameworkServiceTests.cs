@@ -143,4 +143,76 @@ public class GoalFrameworkServiceTests
         db.Milestones.Should().BeEmpty();
         db.Habits.Single().MilestoneId.Should().BeNull();
     }
+
+    [Fact]
+    public async Task UpdateGoal_by_non_owner_returns_NotFound()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var g = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "G" }, CancellationToken.None);
+        var goalId = ((GoalDto)g.Result!).Id;
+
+        var res = await svc.UpdateGoalAsync(2, goalId, new GoalUpsertDto { Title = "Hacked" }, CancellationToken.None);
+        res.IsSuccess.Should().BeFalse();
+        res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteGoal_by_non_owner_returns_NotFound()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var g = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "G" }, CancellationToken.None);
+        var goalId = ((GoalDto)g.Result!).Id;
+
+        var res = await svc.DeleteGoalAsync(2, goalId, CancellationToken.None);
+        res.IsSuccess.Should().BeFalse();
+        res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        db.Goals.Should().ContainSingle(x => x.Id == goalId);
+    }
+
+    [Fact]
+    public async Task UpdateMilestone_by_non_owner_returns_NotFound()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var g = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "G" }, CancellationToken.None);
+        var goalId = ((GoalDto)g.Result!).Id;
+        var m = await svc.CreateMilestoneAsync(1, new MilestoneUpsertDto { GoalId = goalId, Title = "M" }, CancellationToken.None);
+        var milestoneId = ((MilestoneDto)m.Result!).Id;
+
+        var res = await svc.UpdateMilestoneAsync(2, milestoneId, new MilestoneUpsertDto { GoalId = goalId, Title = "Hacked" }, CancellationToken.None);
+        res.IsSuccess.Should().BeFalse();
+        res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task DeleteMilestone_by_non_owner_returns_NotFound()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var g = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "G" }, CancellationToken.None);
+        var goalId = ((GoalDto)g.Result!).Id;
+        var m = await svc.CreateMilestoneAsync(1, new MilestoneUpsertDto { GoalId = goalId, Title = "M" }, CancellationToken.None);
+        var milestoneId = ((MilestoneDto)m.Result!).Id;
+
+        var res = await svc.DeleteMilestoneAsync(2, milestoneId, CancellationToken.None);
+        res.IsSuccess.Should().BeFalse();
+        res.StatusCode.Should().Be(HttpStatusCode.NotFound);
+        db.Milestones.Should().ContainSingle(x => x.Id == milestoneId);
+    }
+
+    [Fact]
+    public async Task UpdateGoal_with_invalid_status_returns_BadRequest()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var g = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "G" }, CancellationToken.None);
+        var goalId = ((GoalDto)g.Result!).Id;
+
+        var res = await svc.UpdateGoalAsync(1, goalId, new GoalUpsertDto { Title = "G", Status = "Nonsense" }, CancellationToken.None);
+        res.IsSuccess.Should().BeFalse();
+        res.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+        db.Goals.Single(x => x.Id == goalId).Status.Should().Be(GoalStatus.Active);
+    }
 }
