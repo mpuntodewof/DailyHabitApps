@@ -54,5 +54,6 @@ namespace AtomicHabits.Models.DTO
         public string? MilestoneTitle { get; set; }
         public string? GoalTitle { get; set; }
         public string? VisionTitle { get; set; }
+        public string? IdentityTitle { get; set; }
     }
 }

@@ -26,7 +26,7 @@ import { useGoals } from '../../../context/GoalContext';
 import { useNavigate } from 'react-router';
 
 
-const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode }) => {
+const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode, lockedMilestoneId = null, lockedMilestoneLabel = '' }) => {
     const { user } = useAuth(); // Get user from AuthContext
     const { goals, listMilestones } = useGoals();
     const [selectedColor, setSelectedColor] = useState('');
@@ -63,7 +63,8 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode }) => {
                 frequency: 'Daily',
                 goalValue: 1,
                 goalUnit: 'Times',
-                goalFrequency: 'Per Day'
+                goalFrequency: 'Per Day',
+                milestoneId: lockedMilestoneId ?? undefined
             });
             setSelectedColor('#5D87FF');
         }
@@ -106,7 +107,11 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode }) => {
         }
 
         onSubmit(payload);
-        navigate('/habits');
+        // When opened from the Goals page (milestone locked), stay on the page
+        // so the new habit can refresh in-place under its milestone.
+        if (!lockedMilestoneId) {
+            navigate('/habits');
+        }
     }
 
     const colorOptions = [
@@ -265,21 +270,36 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode }) => {
                             <Typography variant="body2" color="text.secondary" mb={1} fontWeight="medium">
                                 CONTRIBUTES TO
                             </Typography>
-                            <FormControl fullWidth size="medium">
-                                <InputLabel id="contributes-to-label">Contributes to</InputLabel>
-                                <Select
-                                    labelId="contributes-to-label"
-                                    label="Contributes to"
-                                    sx={{ backgroundColor: '#f8f9fa' }}
-                                    value={formData.milestoneId ?? ''}
-                                    onChange={e => handleChange('milestoneId', e.target.value)}
-                                >
-                                    <MenuItem value="">None</MenuItem>
-                                    {milestoneOptions.map((opt) => (
-                                        <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>
-                                    ))}
-                                </Select>
-                            </FormControl>
+                            {lockedMilestoneId ? (
+                                <TextField
+                                    fullWidth
+                                    size="medium"
+                                    variant="outlined"
+                                    disabled
+                                    value={lockedMilestoneLabel || 'Linked milestone'}
+                                    sx={{
+                                        '& .MuiOutlinedInput-root': {
+                                            backgroundColor: '#f8f9fa'
+                                        }
+                                    }}
+                                />
+                            ) : (
+                                <FormControl fullWidth size="medium">
+                                    <InputLabel id="contributes-to-label">Contributes to</InputLabel>
+                                    <Select
+                                        labelId="contributes-to-label"
+                                        label="Contributes to"
+                                        sx={{ backgroundColor: '#f8f9fa' }}
+                                        value={formData.milestoneId ?? ''}
+                                        onChange={e => handleChange('milestoneId', e.target.value)}
+                                    >
+                                        <MenuItem value="">None</MenuItem>
+                                        {milestoneOptions.map((opt) => (
+                                            <MenuItem key={opt.id} value={opt.id}>{opt.label}</MenuItem>
+                                        ))}
+                                    </Select>
+                                </FormControl>
+                            )}
                         </Grid>
 
                         {/* Start Date and Time of Day Fields */}

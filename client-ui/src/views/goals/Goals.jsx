@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Card,
@@ -28,7 +28,9 @@ import {
 } from '@tabler/icons-react';
 import PageContainer from '../../components/container/PageContainer';
 import { useGoals } from '../../context/GoalContext';
+import { useHabits } from '../../context/HabitContext';
 import { useSnackbar } from '../../context/SnackbarContext';
+import HabitDialogForm from '../habit/components/HabitDialogForm';
 
 const GOAL_STATUSES = ['Active', 'Completed', 'Paused', 'Abandoned'];
 const MILESTONE_STATUSES = ['Active', 'Completed'];
@@ -49,6 +51,7 @@ const Goals = () => {
     createGoal, updateGoal, deleteGoal,
     listMilestones, createMilestone, updateMilestone, deleteMilestone,
   } = useGoals();
+  const { habits, fetchHabits, createHabit } = useHabits();
   const { showSuccess, showError } = useSnackbar();
 
   // milestones cache keyed by goalId; null = not yet loaded
@@ -58,6 +61,31 @@ const Goals = () => {
   // dialog state: { type: 'vision'|'goal'|'milestone', mode: 'create'|'edit', data }
   const [dialog, setDialog] = useState(null);
   const [form, setForm] = useState({});
+
+  // "Add a habit toward this" dialog state: holds { milestone, goalTitle } or null
+  const [addHabitTo, setAddHabitTo] = useState(null);
+
+  // Load the habit list once so we can show habits linked to each milestone.
+  useEffect(() => {
+    fetchHabits?.();
+  }, [fetchHabits]);
+
+  // habits may be an array (fetchHabits) or { result: [...] } (searchHabits)
+  const habitList = Array.isArray(habits) ? habits : (habits?.result || []);
+
+  const habitsForMilestone = (milestoneId) =>
+    habitList.filter((h) => h.milestoneId === milestoneId);
+
+  const handleAddHabit = async (payload) => {
+    try {
+      await createHabit(payload);
+      showSuccess('Habit added');
+      setAddHabitTo(null);
+      await fetchHabits?.();
+    } catch (err) {
+      showError('Failed to add habit');
+    }
+  };
 
   const loadMilestones = async (goalId) => {
     if (milestonesByGoal[goalId] !== undefined) return;
@@ -189,16 +217,38 @@ const Goals = () => {
             <Typography variant="body2" color="text.secondary" sx={{ pl: 1 }}>No milestones yet.</Typography>
           ) : (
             <Stack spacing={1}>
-              {ms.map((m) => (
-                <Box key={m.id} display="flex" alignItems="center" gap={1} sx={{ pl: 1 }}>
-                  <Typography variant="body2">{m.title}</Typography>
-                  <Chip label={m.status} size="small" color={statusColor(m.status)} variant="outlined" />
-                  <Box sx={{ ml: 'auto' }}>
-                    <IconButton size="small" onClick={() => openMilestoneDialog('edit', m, m.goalId)}><IconEdit size={14} /></IconButton>
-                    <IconButton size="small" color="error" onClick={() => handleDeleteMilestone(m)}><IconTrash size={14} /></IconButton>
+              {ms.map((m) => {
+                const linkedHabits = habitsForMilestone(m.id);
+                return (
+                  <Box key={m.id} sx={{ pl: 1 }}>
+                    <Box display="flex" alignItems="center" gap={1}>
+                      <Typography variant="body2">{m.title}</Typography>
+                      <Chip label={m.status} size="small" color={statusColor(m.status)} variant="outlined" />
+                      <Box sx={{ ml: 'auto' }}>
+                        <IconButton size="small" onClick={() => openMilestoneDialog('edit', m, m.goalId)}><IconEdit size={14} /></IconButton>
+                        <IconButton size="small" color="error" onClick={() => handleDeleteMilestone(m)}><IconTrash size={14} /></IconButton>
+                      </Box>
+                    </Box>
+                    {linkedHabits.length > 0 ? (
+                      <Stack direction="row" spacing={0.5} sx={{ pl: 1, mt: 0.5, flexWrap: 'wrap', gap: 0.5 }}>
+                        {linkedHabits.map((h) => (
+                          <Chip key={h.id} label={h.name} size="small" variant="outlined" />
+                        ))}
+                      </Stack>
+                    ) : (
+                      <Typography variant="caption" color="text.disabled" sx={{ pl: 1 }}>No habits yet.</Typography>
+                    )}
+                    <Button
+                      size="small"
+                      startIcon={<IconPlus size={14} />}
+                      sx={{ ml: 0.5, mt: 0.5 }}
+                      onClick={() => setAddHabitTo({ milestone: m, goalTitle: goal.title })}
+                    >
+                      Add a habit toward this
+                    </Button>
                   </Box>
-                </Box>
-              ))}
+                );
+              })}
             </Stack>
           )}
         </AccordionDetails>
@@ -351,6 +401,16 @@ const Goals = () => {
           <Button onClick={handleSave} variant="contained">Save</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Add-a-habit-toward-this-milestone dialog (pre-linked, milestone locked) */}
+      <HabitDialogForm
+        open={!!addHabitTo}
+        onClose={() => setAddHabitTo(null)}
+        onSubmit={handleAddHabit}
+        isEditMode={false}
+        lockedMilestoneId={addHabitTo?.milestone?.id ?? null}
+        lockedMilestoneLabel={addHabitTo ? `${addHabitTo.goalTitle} › ${addHabitTo.milestone.title}` : ''}
+      />
     </PageContainer>
   );
 };
