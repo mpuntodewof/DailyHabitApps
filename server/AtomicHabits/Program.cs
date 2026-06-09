@@ -58,6 +58,7 @@ builder.Services.AddScoped<IHabitReminderService, HabitReminderService>();
 builder.Services.AddScoped<ITwoFactorService, TwoFactorService>();
 builder.Services.AddScoped<ITagService, TagService>();
 builder.Services.AddScoped<IGoalFrameworkService, GoalFrameworkService>();
+builder.Services.AddScoped<IHabitSkipService, HabitSkipService>();
 #endregion
 
 #region Hosted Services
