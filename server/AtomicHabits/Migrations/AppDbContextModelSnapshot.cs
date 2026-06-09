@@ -567,6 +567,9 @@ namespace AtomicHabits.Migrations
                     b.Property<DateTime?>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime?>("CurrentPeriodEnd")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Email")
                         .HasColumnType("nvarchar(450)");
 
@@ -579,8 +582,14 @@ namespace AtomicHabits.Migrations
                     b.Property<string>("PasswordResetToken")
                         .HasColumnType("nvarchar(max)");
 
+                    b.Property<int>("PlanTier")
+                        .HasColumnType("int");
+
                     b.Property<DateTime?>("ResetTokenExpiry")
                         .HasColumnType("datetime2");
+
+                    b.Property<int>("SubscriptionStatus")
+                        .HasColumnType("int");
 
                     b.Property<bool?>("TwoFactorEnabled")
                         .HasColumnType("bit");
