@@ -26,6 +26,7 @@ const BlankLayout = lazy(() => import('../layouts/BlankLayout'));
 /* ****Pages***** */
 const Dashboard = lazy(() => import('../views/dashboard/Dashboard'));
 const Habit = lazy(() => import('../views/habit/Habit'));
+const Goals = lazy(() => import('../views/goals/Goals'));
 const Tables = lazy(() => import('../views/tables/Tables'));
 const Stats = lazy(() => import('../views/stats/Stats'));
 // const Profile = lazy(() => import('../views/profile/Profile'));
@@ -62,6 +63,7 @@ const Router = [
     children: [
       { path: '/dashboard', element: <Dashboard /> },
       { path: '/habits', exact: true, element: <Habit /> },
+      { path: '/goals', exact: true, element: <Goals /> },
       { path: '/stats', exact: true, element: <Stats /> },
       { path: '/tables', exact: true, element: <Tables /> },
       { path: '/settings', exact: true, element: <Settings /> },

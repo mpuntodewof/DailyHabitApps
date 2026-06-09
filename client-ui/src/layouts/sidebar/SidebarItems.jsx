@@ -15,6 +15,7 @@ import {
   IconSettings,
   IconChartHistogram,
   IconShieldCog,
+  IconTargetArrow,
 } from '@tabler/icons-react';
 import { useAuth } from '../../context/AuthContext';
 
@@ -28,6 +29,11 @@ const menuItems = [
     title: 'Habit Tracker',
     icon: IconCalendarWeek,
     href: '/habits'
+  },
+  {
+    title: 'Goals',
+    icon: IconTargetArrow,
+    href: '/goals'
   },
   {
     title: 'Stats',
