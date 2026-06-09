@@ -109,6 +109,36 @@ public class InsightServiceTests
     }
 
     [Fact]
+    public async Task WeekdayVsWeekend_insight_works_on_relational_provider()
+    {
+        using var sqlite = new SqliteTestDb();
+        var db = sqlite.Context;
+        // SQLite enforces FK constraints (unlike the EF InMemory provider), so seed the owning User.
+        db.Users.Add(new User { Id = 1, Username = "u1", Email = "u1@example.com" });
+        await db.SaveChangesAsync();
+        var habit = new Habit { UserId = 1, Name = "Gym", Frequency = "Daily" };
+        db.Habits.Add(habit); await db.SaveChangesAsync();
+        // 4 weekdays + 2 weekend so both sides present and >=5 total
+        var dates = new[] {
+            new DateTime(2026,6,1,8,0,0,DateTimeKind.Utc), // Mon
+            new DateTime(2026,6,2,8,0,0,DateTimeKind.Utc), // Tue
+            new DateTime(2026,6,3,8,0,0,DateTimeKind.Utc), // Wed
+            new DateTime(2026,6,4,8,0,0,DateTimeKind.Utc), // Thu
+            new DateTime(2026,6,6,8,0,0,DateTimeKind.Utc), // Sat
+            new DateTime(2026,6,7,8,0,0,DateTimeKind.Utc), // Sun
+        };
+        foreach (var d in dates)
+            db.HabitTrackings.Add(new HabitTracking { UserId = 1, HabitId = habit.Id, IsCompleted = true, CompletedAt = d, TrackingDate = d });
+        await db.SaveChangesAsync();
+
+        var svc = new InsightService(db, NullLogger<InsightService>.Instance);
+        var res = await svc.GetInsightsAsync(1, CancellationToken.None);
+        var wk = ((IEnumerable<InsightDto>)res.Result!)
+            .FirstOrDefault(i => i.Key == "weekday-vs-weekend");
+        wk.Should().NotBeNull(); // and crucially: GetInsightsAsync did not throw a translation exception
+    }
+
+    [Fact]
     public async Task Insights_are_owner_scoped()
     {
         using var db = TestDbContextFactory.Create();

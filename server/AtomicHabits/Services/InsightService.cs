@@ -57,11 +57,12 @@ namespace AtomicHabits.Services
 
         private async Task<InsightDto?> CompletionTimeOfDayAsync(int userId, CancellationToken ct)
         {
-            var hours = await _db.HabitTrackings
+            var completedAts = await _db.HabitTrackings
                 .Where(t => t.UserId == userId && t.IsCompleted && t.CompletedAt != null)
-                .Select(t => t.CompletedAt!.Value.Hour)
+                .Select(t => t.CompletedAt!.Value)
                 .ToListAsync(ct);
-            if (hours.Count < 5) return null;
+            if (completedAts.Count < 5) return null;
+            var hours = completedAts.Select(d => d.Hour).ToList();
             int morning = hours.Count(h => h < 12);
             int afternoon = hours.Count(h => h >= 12 && h < 18);
             int evening = hours.Count(h => h >= 18);
@@ -74,11 +75,12 @@ namespace AtomicHabits.Services
 
         private async Task<InsightDto?> WeekdayVsWeekendAsync(int userId, CancellationToken ct)
         {
-            var dows = await _db.HabitTrackings
+            var completedAts = await _db.HabitTrackings
                 .Where(t => t.UserId == userId && t.IsCompleted && t.CompletedAt != null)
-                .Select(t => t.CompletedAt!.Value.DayOfWeek)
+                .Select(t => t.CompletedAt!.Value)
                 .ToListAsync(ct);
-            if (dows.Count < 5) return null;
+            if (completedAts.Count < 5) return null;
+            var dows = completedAts.Select(d => d.DayOfWeek).ToList();
             int weekend = dows.Count(d => d == DayOfWeek.Saturday || d == DayOfWeek.Sunday);
             int weekday = dows.Count - weekend;
             if (weekday == 0 || weekend == 0) return null; // need both sides
