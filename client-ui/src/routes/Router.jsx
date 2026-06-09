@@ -29,7 +29,6 @@ const Habit = lazy(() => import('../views/habit/Habit'));
 const Goals = lazy(() => import('../views/goals/Goals'));
 const Tables = lazy(() => import('../views/tables/Tables'));
 const Stats = lazy(() => import('../views/stats/Stats'));
-const Insights = lazy(() => import('../views/insights/Insights'));
 // const Profile = lazy(() => import('../views/profile/Profile'));
 const Settings = lazy(() => import('../views/settings/Settings'));
 const AdminUsers = lazy(() => import('../views/admin/AdminUsers'));
@@ -66,7 +65,6 @@ const Router = [
       { path: '/habits', exact: true, element: <Habit /> },
       { path: '/goals', exact: true, element: <Goals /> },
       { path: '/stats', exact: true, element: <Stats /> },
-      { path: '/insights', exact: true, element: <Insights /> },
       { path: '/tables', exact: true, element: <Tables /> },
       { path: '/settings', exact: true, element: <Settings /> },
       { path: '/admin/users', exact: true, element: <AdminUsers /> },
