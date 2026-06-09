@@ -156,6 +156,7 @@ namespace AtomicHabits.Repositories
                     GoalValue = habitDto.GoalValue,
                     GoalUnit = habitDto.GoalUnit,
                     GoalFrequency = habitDto.GoalFrequency,
+                    MilestoneId = habitDto.MilestoneId,
                     CreatedAt = habitDto.CreatedAt,
                 };
 
@@ -189,6 +190,7 @@ namespace AtomicHabits.Repositories
                 habit.GoalValue = habitDto.GoalValue;
                 habit.GoalUnit = habitDto.GoalUnit;
                 habit.GoalFrequency = habitDto.GoalFrequency;
+                habit.MilestoneId = habitDto.MilestoneId;
                 habit.UpdatedAt = habitDto.UpdatedAt;
 
                 _db.Habits.Update(habit);
