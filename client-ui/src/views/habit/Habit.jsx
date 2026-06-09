@@ -224,7 +224,26 @@ const Habit = () => {
             // Submit completion with time spent (use correct DB field: TimeSpentMinutes)
             const res = await submitDailyHabit(pendingHabitId, {}, minutes);
             if (res.status === 200) {
-                showSuccess('Habit marked as complete for today!');
+                // Resolve the habit's identity for an "identity-vote" confirmation hit.
+                // Additive: only replaces the default toast when an identity exists.
+                let identity = null;
+                const habitName = habits?.result?.find((h) => h.id === pendingHabitId)?.name;
+                try {
+                    identity = contributions[pendingHabitId]?.identityTitle ?? null;
+                    if (!identity) {
+                        const contrib = (await api.get(`/Habit/${pendingHabitId}/contribution`)).data?.result;
+                        identity = contrib?.identityTitle ?? null;
+                    }
+                } catch (e) {
+                    console.error('Error fetching contribution for identity-vote toast', e);
+                    identity = null;
+                }
+
+                if (identity && habitName) {
+                    showSuccess(`✓ ${habitName} — A vote for ${identity} 🗳️`);
+                } else {
+                    showSuccess('Habit marked as complete for today!');
+                }
             } else {
                 showError('Failed to mark habit as complete.');
             }
