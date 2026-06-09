@@ -152,11 +152,66 @@ namespace AtomicHabits.Services
             return Ok(new { goalId });
         }
 
-        // ---------- Milestone (full impl in Task 4) ----------
-        public Task<ApiResponse> ListMilestonesAsync(int userId, int goalId, CancellationToken ct) => throw new NotImplementedException();
-        public Task<ApiResponse> CreateMilestoneAsync(int userId, MilestoneUpsertDto dto, CancellationToken ct) => throw new NotImplementedException();
-        public Task<ApiResponse> UpdateMilestoneAsync(int userId, int milestoneId, MilestoneUpsertDto dto, CancellationToken ct) => throw new NotImplementedException();
-        public Task<ApiResponse> DeleteMilestoneAsync(int userId, int milestoneId, CancellationToken ct) => throw new NotImplementedException();
+        // ---------- Milestone ----------
+        public async Task<ApiResponse> ListMilestonesAsync(int userId, int goalId, CancellationToken ct)
+        {
+            if (!await _db.Goals.AnyAsync(g => g.Id == goalId && g.UserId == userId, ct))
+                return NotFound("Goal not found");
+            var items = await _db.Milestones
+                .Where(m => m.GoalId == goalId && m.UserId == userId)
+                .OrderBy(m => m.OrderIndex)
+                .Select(m => new MilestoneDto
+                {
+                    Id = m.Id, GoalId = m.GoalId, Title = m.Title,
+                    Status = m.Status.ToString(), OrderIndex = m.OrderIndex
+                })
+                .ToListAsync(ct);
+            return Ok(items);
+        }
+
+        public async Task<ApiResponse> CreateMilestoneAsync(int userId, MilestoneUpsertDto dto, CancellationToken ct)
+        {
+            if (string.IsNullOrWhiteSpace(dto.Title)) return BadRequest("Title is required");
+            if (!await _db.Goals.AnyAsync(g => g.Id == dto.GoalId && g.UserId == userId, ct))
+                return BadRequest("Goal not found");
+
+            var m = new Milestone
+            {
+                UserId = userId,
+                GoalId = dto.GoalId,
+                Title = dto.Title.Trim(),
+                Status = ParseMilestoneStatus(dto.Status),
+                OrderIndex = dto.OrderIndex
+            };
+            _db.Milestones.Add(m);
+            await _db.SaveChangesAsync(ct);
+            return Ok(ToMilestoneDto(m), HttpStatusCode.Created);
+        }
+
+        public async Task<ApiResponse> UpdateMilestoneAsync(int userId, int milestoneId, MilestoneUpsertDto dto, CancellationToken ct)
+        {
+            var m = await _db.Milestones.FirstOrDefaultAsync(x => x.Id == milestoneId && x.UserId == userId, ct);
+            if (m == null) return NotFound("Milestone not found");
+            if (!string.IsNullOrWhiteSpace(dto.Title)) m.Title = dto.Title.Trim();
+            if (!string.IsNullOrWhiteSpace(dto.Status)) m.Status = ParseMilestoneStatus(dto.Status);
+            m.OrderIndex = dto.OrderIndex;
+            await _db.SaveChangesAsync(ct);
+            return Ok(ToMilestoneDto(m));
+        }
+
+        public async Task<ApiResponse> DeleteMilestoneAsync(int userId, int milestoneId, CancellationToken ct)
+        {
+            var m = await _db.Milestones.FirstOrDefaultAsync(x => x.Id == milestoneId && x.UserId == userId, ct);
+            if (m == null) return NotFound("Milestone not found");
+
+            // FK_Habits_Milestones is NoAction — null linked habits before delete.
+            var habits = await _db.Habits.Where(h => h.MilestoneId == milestoneId).ToListAsync(ct);
+            foreach (var h in habits) h.MilestoneId = null;
+
+            _db.Milestones.Remove(m);
+            await _db.SaveChangesAsync(ct);
+            return Ok(new { milestoneId });
+        }
 
         // ---------- helpers ----------
         private static GoalDto ToGoalDto(Goal g) => new()
@@ -165,6 +220,13 @@ namespace AtomicHabits.Services
         };
         private static GoalStatus ParseGoalStatus(string? s) =>
             Enum.TryParse<GoalStatus>(s, true, out var v) ? v : GoalStatus.Active;
+
+        private static MilestoneDto ToMilestoneDto(Milestone m) => new()
+        {
+            Id = m.Id, GoalId = m.GoalId, Title = m.Title, Status = m.Status.ToString(), OrderIndex = m.OrderIndex
+        };
+        private static MilestoneStatus ParseMilestoneStatus(string? s) =>
+            Enum.TryParse<MilestoneStatus>(s, true, out var v) ? v : MilestoneStatus.Active;
 
         private static ApiResponse Ok(object result, HttpStatusCode status = HttpStatusCode.OK) =>
             new() { IsSuccess = true, StatusCode = status, Result = result };

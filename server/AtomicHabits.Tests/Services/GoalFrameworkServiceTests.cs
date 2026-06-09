@@ -94,4 +94,53 @@ public class GoalFrameworkServiceTests
         db.Milestones.Should().BeEmpty();          // cascaded with goal
         db.Habits.Single().MilestoneId.Should().BeNull(); // habit survives, FK nulled
     }
+
+    [Fact]
+    public async Task CreateMilestone_requires_owned_goal_and_defaults_active()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var g = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "G" }, CancellationToken.None);
+        var goalId = ((GoalDto)g.Result!).Id;
+
+        var ok = await svc.CreateMilestoneAsync(1, new MilestoneUpsertDto { GoalId = goalId, Title = "Build portfolio" }, CancellationToken.None);
+        ((MilestoneDto)ok.Result!).Status.Should().Be("Active");
+
+        // goal owned by someone else -> rejected
+        var bad = await svc.CreateMilestoneAsync(2, new MilestoneUpsertDto { GoalId = goalId, Title = "x" }, CancellationToken.None);
+        bad.IsSuccess.Should().BeFalse();
+    }
+
+    [Fact]
+    public async Task ListMilestones_returns_goal_milestones_ordered_by_OrderIndex()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var g = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "G" }, CancellationToken.None);
+        var goalId = ((GoalDto)g.Result!).Id;
+        await svc.CreateMilestoneAsync(1, new MilestoneUpsertDto { GoalId = goalId, Title = "second", OrderIndex = 1 }, CancellationToken.None);
+        await svc.CreateMilestoneAsync(1, new MilestoneUpsertDto { GoalId = goalId, Title = "first", OrderIndex = 0 }, CancellationToken.None);
+
+        var list = await svc.ListMilestonesAsync(1, goalId, CancellationToken.None);
+        var items = ((IEnumerable<MilestoneDto>)list.Result!).ToList();
+        items.Select(m => m.Title).Should().ContainInOrder("first", "second");
+    }
+
+    [Fact]
+    public async Task DeleteMilestone_nulls_linked_habits_but_keeps_them()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var g = await svc.CreateGoalAsync(1, new GoalUpsertDto { Title = "G" }, CancellationToken.None);
+        var goalId = ((GoalDto)g.Result!).Id;
+        var m = await svc.CreateMilestoneAsync(1, new MilestoneUpsertDto { GoalId = goalId, Title = "M" }, CancellationToken.None);
+        var milestoneId = ((MilestoneDto)m.Result!).Id;
+        db.Habits.Add(new Habit { UserId = 1, Name = "H", Frequency = "Daily", MilestoneId = milestoneId });
+        await db.SaveChangesAsync();
+
+        var del = await svc.DeleteMilestoneAsync(1, milestoneId, CancellationToken.None);
+        del.IsSuccess.Should().BeTrue();
+        db.Milestones.Should().BeEmpty();
+        db.Habits.Single().MilestoneId.Should().BeNull();
+    }
 }
