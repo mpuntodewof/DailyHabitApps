@@ -53,6 +53,15 @@ namespace AtomicHabits.Authorization
                 return Task.FromResult<AuthorizationPolicy?>(policy);
             }
 
+            if (string.Equals(policyName, RequiresActiveSubscriptionAttribute.PolicyName, StringComparison.OrdinalIgnoreCase))
+            {
+                var policy = new AuthorizationPolicyBuilder(JwtBearerDefaults.AuthenticationScheme)
+                    .RequireAuthenticatedUser()
+                    .AddRequirements(new ActiveSubscriptionRequirement())
+                    .Build();
+                return Task.FromResult<AuthorizationPolicy?>(policy);
+            }
+
             return _fallback.GetPolicyAsync(policyName);
         }
     }

@@ -19,6 +19,8 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [permissions, setPermissions] = useState([]);
   const [roles, setRoles] = useState([]);
+  const [planTier, setPlanTier] = useState('Free');
+  const [isPro, setIsPro] = useState(false);
   const [initializing, setInitializing] = useState(true);
 
   const clearSessions = useCallback(() => {
@@ -26,6 +28,8 @@ export const AuthProvider = ({ children }) => {
     setUser(null);
     setPermissions([]);
     setRoles([]);
+    setPlanTier('Free');
+    setIsPro(false);
   }, []);
 
   const fetchMe = useCallback(async () => {
@@ -35,6 +39,8 @@ export const AuthProvider = ({ children }) => {
       if (me) {
         setPermissions(me.permissions || []);
         setRoles(me.roles || []);
+        setPlanTier(me.planTier || 'Free');
+        setIsPro(me.isPro === true);
       }
     } catch (err) {
       console.warn('Failed to load /Auth/me:', err?.message);
@@ -157,6 +163,8 @@ export const AuthProvider = ({ children }) => {
       user,
       permissions,
       roles,
+      planTier,
+      isPro,
       hasPermission,
       hasRole,
       initializing,
@@ -167,7 +175,7 @@ export const AuthProvider = ({ children }) => {
       confirmPasswordReset,
       logout
     }),
-    [user, permissions, roles, hasPermission, hasRole, initializing, login, verifyTwoFactor, logout]
+    [user, permissions, roles, planTier, isPro, hasPermission, hasRole, initializing, login, verifyTwoFactor, logout]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

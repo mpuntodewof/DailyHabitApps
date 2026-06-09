@@ -13,6 +13,15 @@
         public string? PasswordResetToken { get; set; }
         public DateTime? ResetTokenExpiry { get; set; }
 
+        public PlanTier PlanTier { get; set; } = PlanTier.Free;
+        public SubscriptionStatus SubscriptionStatus { get; set; } = SubscriptionStatus.None;
+        public DateTime? CurrentPeriodEnd { get; set; }
+
+        // Convenience: an active Pro entitlement. (Stripe will keep these in sync in Plan 7.)
+        [System.ComponentModel.DataAnnotations.Schema.NotMapped]
+        public bool IsProActive =>
+            PlanTier == PlanTier.Pro && SubscriptionStatus == SubscriptionStatus.Active;
+
         public ICollection<UserRole>? UserRoles { get; set; }
         public ICollection<Habit>? Habits { get; set; }
         public ICollection<HabitTracking>? HabitTrackings { get; set; }
