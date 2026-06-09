@@ -62,7 +62,13 @@ const ReportContent = () => {
   }
 
   const r = report;
-  const hasData = r && (r.bestHabit || r.topMissReason || r.performanceScore > 0);
+  // "Has data" if the report carries ANY computed signal — not just a positive
+  // score. A genuine week can have score 0 but a focus line / delta / skip reason,
+  // which must still render (not fall to the empty state).
+  const hasData = r && (
+    r.bestHabit || r.worstHabit || r.topMissReason || r.focusNextWeek ||
+    r.performanceScore > 0 || (r.consistencyDelta ?? 0) !== 0
+  );
   const delta = r?.consistencyDelta ?? 0;
 
   return (
@@ -94,7 +100,7 @@ const ReportContent = () => {
               <Stack direction="row" spacing={0.5} alignItems="center">
                 {delta >= 0 ? <IconArrowUpRight size={16} color="#13DEB9" /> : <IconArrowDownRight size={16} color="#FA896B" />}
                 <Typography variant="body2" sx={{ color: delta >= 0 ? 'success.main' : 'error.main' }}>
-                  {delta >= 0 ? '+' : ''}{delta}% vs last week
+                  {delta >= 0 ? '+' : ''}{delta} pts vs last week
                 </Typography>
               </Stack>
               {r.topMissReason && <Typography variant="body2" color="text.secondary">Top miss reason: {r.topMissReason}</Typography>}
