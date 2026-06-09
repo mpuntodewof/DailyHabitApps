@@ -41,21 +41,21 @@ const Dashboard = () => {
             </Suspense>
           </Grid>
 
-          <Grid item xs={12} lg={8} sx={{ width: '100%' }}>
+          <Grid item xs={12} sx={{ width: '100%' }}>
             <Suspense fallback={fallback}>
               <HabitCompletionRate />
             </Suspense>
           </Grid>
 
-          {/* Insights panel — Pro feature (free users see an upgrade prompt). */}
-          <Grid item xs={12} lg={4}>
+          {/* Two Pro narrative cards share a full-width row (each half) so neither
+              leaves blank space. Free users see upgrade prompts in both. */}
+          <Grid item xs={12} lg={6}>
             <Suspense fallback={fallback}>
               <DashboardInsights />
             </Suspense>
           </Grid>
 
-          {/* This Week report — Pro narrative card (mirrors Insights gating). */}
-          <Grid item xs={12} lg={4}>
+          <Grid item xs={12} lg={6}>
             <Suspense fallback={fallback}>
               <DashboardWeeklyReport />
             </Suspense>
