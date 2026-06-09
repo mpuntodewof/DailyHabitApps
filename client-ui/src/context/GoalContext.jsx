@@ -1,6 +1,7 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from 'react';
 import api from '../api/axiosInstance';
 import { getAccessToken } from '../utils/tokenUtils';
+import { useAuth } from './AuthContext';
 
 const GoalContext = createContext(undefined);
 
@@ -11,6 +12,7 @@ export const useGoals = () => {
 };
 
 export const GoalProvider = ({ children }) => {
+  const { user } = useAuth();
   const [visions, setVisions] = useState([]);
   const [goals, setGoals] = useState([]);
   const [loading, setLoading] = useState(false);
@@ -29,7 +31,14 @@ export const GoalProvider = ({ children }) => {
     }
   }, []);
 
-  useEffect(() => { fetchAll(); }, [fetchAll]);
+  // Load once the user is authenticated. On a hard refresh the in-memory access
+  // token is restored asynchronously by AuthContext.restoreSession, so we key the
+  // fetch on `user` (not provider mount) — otherwise fetchAll runs before the
+  // token exists, bails early, and the page shows empty until the next navigation.
+  useEffect(() => {
+    if (user) fetchAll();
+    else { setVisions([]); setGoals([]); }
+  }, [user, fetchAll]);
 
   const createVision = useCallback(async (dto) => {
     const res = await api.post('/Vision', dto);
