@@ -18,6 +18,7 @@ import PageContainer from "../../components/container/PageContainer";
 import HabitDialogForm from './components/HabitDialogForm';
 import HabitTimeDialog from './components/HabitTimeDialog';
 import HabitRemindersDialog from './components/HabitRemindersDialog';
+import SkipHabitDialog from './components/SkipHabitDialog';
 
 
 const Habit = () => {
@@ -34,6 +35,7 @@ const Habit = () => {
     const pageSize = 20;
 
     const [reminderDialog, setReminderDialog] = useState({ open: false, habitId: null, habitName: '' });
+    const [skipTarget, setSkipTarget] = useState(null);
 
     const handleOpen = () => setOpen(true);
     const [openTrackingDialog, setOpenTrackingDialog] = useState(false);
@@ -379,6 +381,7 @@ const Habit = () => {
                                                     onArchive={() => handleArchiveHabit(habit.id)}
                                                     onRestore={() => handleRestoreHabit(habit.id)}
                                                     onReminders={() => setReminderDialog({ open: true, habitId: habit.id, habitName: habit.name })}
+                                                    onSkip={() => setSkipTarget(habit)}
                                                     isArchived={!!habit.isArchived}
                                                 />
                                             </Box>
@@ -463,6 +466,12 @@ const Habit = () => {
                     habitId={reminderDialog.habitId}
                     habitName={reminderDialog.habitName}
                     onClose={() => setReminderDialog({ open: false, habitId: null, habitName: '' })}
+                />
+
+                <SkipHabitDialog
+                    open={!!skipTarget}
+                    habit={skipTarget}
+                    onClose={() => setSkipTarget(null)}
                 />
 
             </Box >
