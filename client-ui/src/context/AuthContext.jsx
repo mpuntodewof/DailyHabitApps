@@ -173,9 +173,10 @@ export const AuthProvider = ({ children }) => {
       register,
       requestPasswordReset,
       confirmPasswordReset,
-      logout
+      logout,
+      refreshMe: fetchMe
     }),
-    [user, permissions, roles, planTier, isPro, hasPermission, hasRole, initializing, login, verifyTwoFactor, logout]
+    [user, permissions, roles, planTier, isPro, hasPermission, hasRole, initializing, login, verifyTwoFactor, logout, fetchMe]
   );
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
