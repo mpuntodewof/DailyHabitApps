@@ -289,7 +289,7 @@ const Habit = () => {
 
                 {/* Button Create Habit Section */}
                 <Grid container paddingTop={4} display={'block'}>
-                    <Grid item xs={12}>
+                    <Grid size={12}>
                         <Button onClick={handleOpen} variant="outlined" color="primary" startIcon={<IconPlus />} fullWidth sx={{
                             '&:focus': {
                                 outline: 'none',
@@ -345,11 +345,11 @@ const Habit = () => {
 
                 {/* Habit Card Section*/}
                 {loading ? (
-                    <Grid item xs={12} display="flex" justifyContent="center" alignItems="center">
+                    <Grid container display="flex" justifyContent="center" alignItems="center">
                         <CircularProgress color="primary" />
                     </Grid>
                 ) : !habits?.result || habits.result.length === 0 ? (
-                    <Grid item xs={12}>
+                    <Grid container>
                         <Card sx={{ padding: 3, height: '100%', width: '100%', textAlign: 'center' }}>
                             <Typography variant="h6" color="textSecondary">
                                 No habits found. Please add a new habit.
@@ -364,7 +364,7 @@ const Habit = () => {
 
                         return (
                             <Grid container spacing={3} sx={{ pt: 2 }} key={index}>
-                                <Grid item xs={12} sx={{ width: '100%' }}>
+                                <Grid size={12} sx={{ width: '100%' }}>
                                     <Card sx={{ 
                                             p: 3, height: '100%', width: '100%', boxShadow: 3, cursor: 'pointer', transition: "0.2s",
                                             '&:hover': { boxShadow: 6, transform: "translateY(-2px)" }

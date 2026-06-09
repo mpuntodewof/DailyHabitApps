@@ -174,7 +174,7 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode, lockedMil
                 <DialogContent sx={{ pt: 3 }}>
                     <Grid container spacing={3}>
                         {/* Name Field */}
-                        <Grid item xs={12} width="100%">
+                        <Grid size={12} width="100%">
                             <Box>
                                 <Typography variant="body2" color="text.secondary" mb={1} fontWeight="medium">
                                     NAME
@@ -197,7 +197,7 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode, lockedMil
                         </Grid>
 
                         {/* Goal and Repeat Row */}
-                        <Grid item xs={6}>
+                        <Grid size={6}>
                             <Typography variant="body2" color="text.secondary" mb={1} fontWeight="medium">
                                 GOAL
                             </Typography>
@@ -245,7 +245,7 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode, lockedMil
                         </Grid>
 
                         {/* Frequency Field */}
-                        <Grid item xs={6} minWidth={190}>
+                        <Grid size={6} minWidth={190}>
                             <Typography variant="body2" color="text.secondary" mb={1} fontWeight="medium">
                                 REPEAT
                             </Typography>
@@ -266,7 +266,7 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode, lockedMil
                         </Grid>
 
                         {/* Contributes To (milestone link) */}
-                        <Grid item xs={12} width="100%">
+                        <Grid size={12} width="100%">
                             <Typography variant="body2" color="text.secondary" mb={1} fontWeight="medium">
                                 CONTRIBUTES TO
                             </Typography>
@@ -303,7 +303,7 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode, lockedMil
                         </Grid>
 
                         {/* Start Date and Time of Day Fields */}
-                        <Grid item xs={12} width="-webkit-fill-available">
+                        <Grid size={12} width="-webkit-fill-available">
                             <Box display="flex" gap={2}>
                                 <Box flex={1}>
                                     <Typography variant="body2" color="text.secondary" mb={1} fontWeight="medium">
@@ -343,7 +343,7 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode, lockedMil
                         </Grid>
 
                         {/* Reminders Field */}
-                        <Grid item xs={12} width="100%">
+                        <Grid size={12} width="100%">
                             <Typography variant="body2" color="text.secondary" mb={1} fontWeight="medium">
                                 NOTES
                             </Typography>
@@ -365,7 +365,7 @@ const HabitDialogForm = ({ open, onClose, onSubmit, habit, isEditMode, lockedMil
                         </Grid>
 
                         {/* Color Picker */}
-                        <Grid item xs={12} width="100%">
+                        <Grid size={12} width="100%">
                             <Typography variant="body2" color="text.secondary" mb={1} fontWeight="medium">
                                 COLOR
                             </Typography>

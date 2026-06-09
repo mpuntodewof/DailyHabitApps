@@ -64,7 +64,7 @@ const TopCards = () => {
   return (
     <Grid container spacing={3} alignItems="stretch">
       {stats.map((stat, index) => (
-        <Grid item xs={12} sm={6} lg={3} key={index}>
+        <Grid size={{ xs: 12, sm: 6, lg: 3 }} key={index}>
           <Card sx={{
             padding: 3,
             height: '170px',
