@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useState } from 'react';
 import { Grid, Box, Card, Typography, Stack, Checkbox, Button, CircularProgress, Chip, TextField, MenuItem, FormControlLabel, Switch, Pagination } from '@mui/material';
 import { IconFlame, IconPlus, IconProgressCheck, IconMapPinFilled, IconClockHour1 } from '@tabler/icons-react';
@@ -104,12 +104,28 @@ const Habit = () => {
         return () => { cancelled = true; };
     }, [habits?.result]);
 
-    const habitSummaryStats = {
-        todaySummary: { habitsToday: 5, completedToday: 2, todayCompletionRate: 40 },
-        weeklySummary: { weeklyCompletionRate: 65, totalCompletedThisWeek: 13 },
-        monthlySummary: { monthlyCompletionRate: 70, totalMonthlySessions: 35 },
-        habitHealthScore: 82
+    // Real, server-computed summary. Defaults to zeros so a new user with no
+    // habits sees an honest empty state (not fake placeholder numbers).
+    const EMPTY_SUMMARY = {
+        todaySummary: { habitsToday: 0, completedToday: 0, todayCompletionRate: 0 },
+        weeklySummary: { weeklyCompletionRate: 0, totalCompletedThisWeek: 0 },
+        monthlySummary: { monthlyCompletionRate: 0, totalMonthlySessions: 0 },
+        habitHealthScore: 0,
     };
+    const [habitSummaryStats, setHabitSummaryStats] = useState(EMPTY_SUMMARY);
+
+    const fetchSummary = useCallback(async () => {
+        if (!user?.sub) return;
+        try {
+            const res = await api.get(`/Habit/habits-summary/${user.sub}`);
+            if (res.data?.result) setHabitSummaryStats(res.data.result);
+        } catch (err) {
+            console.error('Failed to load habit summary:', err.message);
+        }
+    }, [user?.sub]);
+
+    // Refresh the summary when the page loads / the habit list changes.
+    useEffect(() => { fetchSummary(); }, [fetchSummary, habits?.result]);
 
 
     const handleOpenTrackingDialog = (habitId) => {
@@ -194,6 +210,7 @@ const Habit = () => {
             console.log('Habit tracking response:', response);
             if (response.status == 200) {
                 showSuccess('Habit tracking saved successfully!');
+                fetchSummary(); // live-update the summary cards after logging progress
             } else {
                 showError(response.data.errorMessages || 'Failed to submit habit tracking.');
             }
@@ -244,6 +261,7 @@ const Habit = () => {
                 } else {
                     showSuccess('Habit marked as complete for today!');
                 }
+                fetchSummary(); // live-update the summary cards after completion
             } else {
                 showError('Failed to mark habit as complete.');
             }
@@ -491,6 +509,7 @@ const Habit = () => {
                     open={!!skipTarget}
                     habit={skipTarget}
                     onClose={() => setSkipTarget(null)}
+                    onRecorded={fetchSummary}
                 />
 
             </Box >

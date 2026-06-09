@@ -15,7 +15,7 @@ const REASONS = [
     { value: 'Other', label: 'Other' },
 ];
 
-const SkipHabitDialog = ({ open, onClose, habit }) => {
+const SkipHabitDialog = ({ open, onClose, habit, onRecorded }) => {
     const { skipHabit } = useHabits();
     const { showSuccess, showError } = useSnackbar();
     const [selectedReason, setSelectedReason] = useState(null);
@@ -33,6 +33,7 @@ const SkipHabitDialog = ({ open, onClose, habit }) => {
             await skipHabit(habit.id, selectedReason);
             showSuccess('Skip recorded');
             setSelectedReason(null);
+            onRecorded?.();
             onClose();
         } catch (err) {
             showError(err?.response?.data?.errorMessages?.[0] || 'Failed to record skip');
