@@ -1,6 +1,7 @@
 using AtomicHabits.Data;
 using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
+using AtomicHabits.Utils;
 using Microsoft.EntityFrameworkCore;
 using System.Net;
 
@@ -52,7 +53,7 @@ namespace AtomicHabits.Services
             var top = skips.OrderByDescending(s => s.Count).First();
             var pct = (int)Math.Round(100.0 * top.Count / total);
             return new InsightDto { Key = "top-skip-reason",
-                Text = $"Your most common reason for skipping is {Humanize(top.Reason)} ({pct}% of skips)." };
+                Text = $"Your most common reason for skipping is {top.Reason.Humanize()} ({pct}% of skips)." };
         }
 
         private async Task<InsightDto?> CompletionTimeOfDayAsync(int userId, CancellationToken ct)
@@ -115,13 +116,5 @@ namespace AtomicHabits.Services
             return new InsightDto { Key = "most-skipped-habit",
                 Text = $"{name} is your most-skipped habit ({top.Count} skips)." };
         }
-
-        private static string Humanize(SkipReason r) => r switch
-        {
-            SkipReason.LowEnergy => "Low Energy",
-            SkipReason.NoMotivation => "No Motivation",
-            SkipReason.ScheduleConflict => "Schedule Conflict",
-            _ => r.ToString()
-        };
     }
 }

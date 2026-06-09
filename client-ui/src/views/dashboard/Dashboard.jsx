@@ -9,6 +9,7 @@ const TopCards = lazy(() => import('./components/TopCards'));
 const HabitCompletionRate = lazy(() => import('./components/habitCompletionRates/HabitCompletionRate'));
 const ContributionHeatmap = lazy(() => import('./components/ContributionHeatmap'));
 const DashboardInsights = lazy(() => import('./components/DashboardInsights'));
+const DashboardWeeklyReport = lazy(() => import('./components/DashboardWeeklyReport'));
 
 const Dashboard = () => {
   const fallback = <Skeleton variant="rectangular" height={200} animation="wave" />;
@@ -50,6 +51,13 @@ const Dashboard = () => {
           <Grid item xs={12} lg={4}>
             <Suspense fallback={fallback}>
               <DashboardInsights />
+            </Suspense>
+          </Grid>
+
+          {/* This Week report — Pro narrative card (mirrors Insights gating). */}
+          <Grid item xs={12} lg={4}>
+            <Suspense fallback={fallback}>
+              <DashboardWeeklyReport />
             </Suspense>
           </Grid>
 

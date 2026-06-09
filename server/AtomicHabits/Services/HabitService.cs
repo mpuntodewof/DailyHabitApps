@@ -2,6 +2,7 @@
 using AtomicHabits.Models;
 using AtomicHabits.Models.DTO;
 using AtomicHabits.Repositories;
+using AtomicHabits.Utils;
 using Microsoft.EntityFrameworkCore;
 using System.Globalization;
 using System.Net;
@@ -167,7 +168,7 @@ namespace AtomicHabits.Services
             try
             {
                 var today = DateTime.UtcNow.Date;
-                var startOfWeek = StartOfIsoWeek(today);
+                var startOfWeek = HabitMath.StartOfIsoWeek(today);
                 var startOfMonth = new DateTime(today.Year, today.Month, 1);
                 var daysElapsedThisWeek = (today - startOfWeek).Days + 1;
                 var daysElapsedThisMonth = today.Day;
@@ -179,16 +180,16 @@ namespace AtomicHabits.Services
                 var weekTrackings = await _repo.GetWeeklyTrackings(habitIds, startOfWeek, CancellationToken.None);
                 var monthTrackings = await _repo.GetMonthlyTrackings(habitIds, startOfMonth, CancellationToken.None);
 
-                int dailyHabitCount = habits.Count(h => IsDailyHabit(h));
+                int dailyHabitCount = habits.Count(h => HabitMath.IsDailyHabit(h));
                 int completedToday = todayTrackings.Count(t => t.IsCompleted);
                 int todayRate = dailyHabitCount == 0 ? 0 : (completedToday * 100 / dailyHabitCount);
 
-                int expectedThisWeek = habits.Sum(h => ExpectedSessions(h, daysElapsedThisWeek, periodLengthDays: 7));
+                int expectedThisWeek = habits.Sum(h => HabitMath.ExpectedSessions(h, daysElapsedThisWeek, periodLengthDays: 7));
                 int completedThisWeek = weekTrackings.Count(t => t.IsCompleted);
                 int weeklyRate = expectedThisWeek == 0 ? 0 : Math.Min(100, completedThisWeek * 100 / expectedThisWeek);
 
                 int daysInMonth = DateTime.DaysInMonth(today.Year, today.Month);
-                int expectedThisMonth = habits.Sum(h => ExpectedSessions(h, daysElapsedThisMonth, periodLengthDays: daysInMonth));
+                int expectedThisMonth = habits.Sum(h => HabitMath.ExpectedSessions(h, daysElapsedThisMonth, periodLengthDays: daysInMonth));
                 int completedThisMonth = monthTrackings.Count(t => t.IsCompleted);
                 int monthlyRate = expectedThisMonth == 0 ? 0 : Math.Min(100, completedThisMonth * 100 / expectedThisMonth);
 
@@ -341,48 +342,5 @@ namespace AtomicHabits.Services
 
         private Task<bool> OwnsMilestone(int userId, int milestoneId) =>
             _db.Milestones.AnyAsync(m => m.Id == milestoneId && m.UserId == userId);
-
-        private static DateTime StartOfIsoWeek(DateTime today)
-        {
-            int diff = (7 + (int)today.DayOfWeek - (int)DayOfWeek.Monday) % 7;
-            return today.AddDays(-diff).Date;
-        }
-
-        private static bool IsDailyHabit(Habit h)
-        {
-            return IsDailyFrequency((h.GoalFrequency ?? "").Trim().ToLowerInvariant());
-        }
-
-        // True for an empty/unset frequency or a daily one. NOTE: the literal "daily" does NOT
-        // contain the substring "day" (d-a-i-l-y), and "daily" is the model's default value —
-        // so a naive Contains("day") silently undercounts every default habit. Match both forms.
-        private static bool IsDailyFrequency(string f)
-        {
-            return string.IsNullOrEmpty(f) || f.Contains("day") || f.Contains("dai");
-        }
-
-        // Expected completions for a habit within a window of `daysElapsed` days
-        // out of a `periodLengthDays`-day period (week=7, month=daysInMonth, etc.).
-        private static int ExpectedSessions(Habit h, int daysElapsed, int periodLengthDays)
-        {
-            if (daysElapsed <= 0 || periodLengthDays <= 0) return 0;
-
-            var f = (h.GoalFrequency ?? "").Trim().ToLowerInvariant();
-            if (IsDailyFrequency(f)) return daysElapsed;
-            if (f.Contains("week"))
-            {
-                double weeksElapsed = (double)daysElapsed / 7.0;
-                return (int)Math.Ceiling(weeksElapsed);
-            }
-            if (f.Contains("month"))
-            {
-                return daysElapsed >= 1 ? 1 : 0;
-            }
-            if (f.Contains("year"))
-            {
-                return 0;
-            }
-            return daysElapsed;
-        }
     }
 }
