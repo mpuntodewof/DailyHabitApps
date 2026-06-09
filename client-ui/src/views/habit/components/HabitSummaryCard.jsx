@@ -60,7 +60,7 @@ const HabitSummaryCards = ({ stats }) => {
                             width: "100%",          // fill the grid column (was a fixed 350px that broke the 4-across layout)
                             display: "flex",
                             alignItems: "center",
-                            justifyContent: "flex-start",
+                            justifyContent: "center",
                             boxShadow: 2,
                             borderRadius: "12px",
                         }}
