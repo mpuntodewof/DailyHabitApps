@@ -60,26 +60,23 @@ const Habit = () => {
         });
     }, [searchHabits, user?.sub, search, tagFilter, includeArchived, page]);
 
-    useEffect(() => {
-        if (!habits?.result || habits.result.length === 0) return;
-
-        const fetchAllStats = async () => {
-            const statsMap = {};
-            for (const habit of habits.result) {
-                try {
-                    const res = await getHabitStats(habit.id, user.sub);
-                    if (res?.result) {
-                        statsMap[habit.id] = res.result;
-                    }
-                } catch (e) {
-                    console.error("Error fetching stats for habit", habit.id, e);
+    const fetchAllStats = useCallback(async () => {
+        if (!habits?.result || habits.result.length === 0 || !user?.sub) return;
+        const statsMap = {};
+        for (const habit of habits.result) {
+            try {
+                const res = await getHabitStats(habit.id, user.sub);
+                if (res?.result) {
+                    statsMap[habit.id] = res.result;
                 }
+            } catch (e) {
+                console.error("Error fetching stats for habit", habit.id, e);
             }
-            setHabitStats(statsMap);
-        };
-
-        fetchAllStats();
+        }
+        setHabitStats(statsMap);
     }, [habits?.result, getHabitStats, user?.sub]);
+
+    useEffect(() => { fetchAllStats(); }, [fetchAllStats]);
 
     // Fetch the goal/milestone payoff line, only for habits linked to a milestone.
     useEffect(() => {
@@ -210,6 +207,7 @@ const Habit = () => {
             console.log('Habit tracking response:', response);
             if (response.status == 200) {
                 showSuccess('Habit tracking saved successfully!');
+                fetchAllStats(); // refresh per-habit stats (checkbox/completion) live
                 fetchSummary(); // live-update the summary cards after logging progress
             } else {
                 showError(response.data.errorMessages || 'Failed to submit habit tracking.');
@@ -261,6 +259,14 @@ const Habit = () => {
                 } else {
                     showSuccess('Habit marked as complete for today!');
                 }
+                // Optimistically check the box immediately, then reconcile with the
+                // server (so completionRate/streak stay accurate). Previously the
+                // checkbox only updated on a full page refresh.
+                setHabitStats((prev) => ({
+                    ...prev,
+                    [pendingHabitId]: { ...(prev[pendingHabitId] || {}), completedToday: true },
+                }));
+                fetchAllStats();
                 fetchSummary(); // live-update the summary cards after completion
             } else {
                 showError('Failed to mark habit as complete.');
