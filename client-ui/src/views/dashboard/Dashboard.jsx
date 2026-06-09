@@ -34,14 +34,15 @@ const Dashboard = () => {
   return (
     <PageContainer title="Dashboard" description="Your habit overview">
       <Box>
+        {/* MUI 7 Grid: items use `size` (no `item`/bare xs/lg props, which v7 ignores). */}
         <Grid container spacing={4}>
-          <Grid xs={12}>
+          <Grid size={12}>
             <Suspense fallback={fallback}>
               <TopCards />
             </Suspense>
           </Grid>
 
-          <Grid item xs={12} sx={{ width: '100%' }}>
+          <Grid size={12}>
             <Suspense fallback={fallback}>
               <HabitCompletionRate />
             </Suspense>
@@ -49,19 +50,19 @@ const Dashboard = () => {
 
           {/* Two Pro narrative cards share a full-width row (each half) so neither
               leaves blank space. Free users see upgrade prompts in both. */}
-          <Grid item xs={12} lg={6}>
+          <Grid size={{ xs: 12, lg: 6 }}>
             <Suspense fallback={fallback}>
               <DashboardInsights />
             </Suspense>
           </Grid>
 
-          <Grid item xs={12} lg={6}>
+          <Grid size={{ xs: 12, lg: 6 }}>
             <Suspense fallback={fallback}>
               <DashboardWeeklyReport />
             </Suspense>
           </Grid>
 
-          <Grid item xs={12} sx={{ width: '100%' }}>
+          <Grid size={12}>
             <Suspense fallback={fallback}>
               <ContributionHeatmap cells={heatmapCells} />
             </Suspense>
