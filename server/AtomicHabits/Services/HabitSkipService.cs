@@ -29,7 +29,7 @@ namespace AtomicHabits.Services
             if (!await _db.Habits.AnyAsync(h => h.Id == dto.HabitId && h.UserId == userId, ct))
                 return NotFound("Habit not found");
 
-            if (!Enum.TryParse<SkipReason>(dto.Reason, true, out var reason))
+            if (!Enum.TryParse<SkipReason>(dto.Reason, true, out var reason) || !Enum.IsDefined(typeof(SkipReason), reason))
                 return BadRequest("Invalid reason");
 
             var date = dto.Date ?? DateOnly.FromDateTime(DateTime.UtcNow);

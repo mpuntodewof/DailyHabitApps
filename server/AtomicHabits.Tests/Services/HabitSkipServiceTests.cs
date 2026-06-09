@@ -84,6 +84,17 @@ public class HabitSkipServiceTests
     }
 
     [Fact]
+    public async Task Create_with_out_of_range_numeric_reason_is_rejected()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = NewService(db);
+        var habitId = await SeedHabit(db, 1);
+        var res = await svc.CreateAsync(1, new HabitSkipCreateDto { HabitId = habitId, Reason = "99" }, CancellationToken.None);
+        res.IsSuccess.Should().BeFalse();
+        res.StatusCode.Should().Be(System.Net.HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
     public async Task List_returns_only_owners_skips_for_habit_newest_first()
     {
         using var db = TestDbContextFactory.Create();
