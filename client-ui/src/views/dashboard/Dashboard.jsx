@@ -3,6 +3,7 @@ import { Grid, Box, Skeleton } from '@mui/material';
 import PageContainer from '../../components/container/PageContainer';
 import api from '../../api/axiosInstance';
 import { getAccessToken } from '../../utils/tokenUtils';
+import { useAuth } from '../../context/AuthContext';
 
 // components
 const TopCards = lazy(() => import('./components/TopCards'));
@@ -14,6 +15,13 @@ const DashboardWeeklyReport = lazy(() => import('./components/DashboardWeeklyRep
 const Dashboard = () => {
   const fallback = <Skeleton variant="rectangular" height={200} animation="wave" />;
   const [heatmapCells, setHeatmapCells] = useState([]);
+  const { refreshMe } = useAuth();
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.location.search.includes('checkout=success')) {
+      refreshMe?.();
+    }
+  }, [refreshMe]);
 
   useEffect(() => {
     if (!getAccessToken()) return;

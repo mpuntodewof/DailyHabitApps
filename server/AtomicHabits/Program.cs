@@ -14,6 +14,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Identity.UI.Services;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
@@ -61,6 +62,9 @@ builder.Services.AddScoped<IGoalFrameworkService, GoalFrameworkService>();
 builder.Services.AddScoped<IHabitSkipService, HabitSkipService>();
 builder.Services.AddScoped<IInsightService, InsightService>();
 builder.Services.AddScoped<IWeeklyReportService, WeeklyReportService>();
+builder.Services.AddScoped<IStripeGateway, StripeGateway>();
+builder.Services.AddScoped<IBillingService, BillingService>();
+builder.Services.AddScoped<IStripeWebhookHandler, StripeWebhookHandler>();
 #endregion
 
 #region Hosted Services
@@ -95,6 +99,7 @@ builder.Services
 
 builder.Services.Configure<AppOptions>(builder.Configuration.GetSection(AppOptions.SectionName));
 builder.Services.Configure<CorsOptions>(builder.Configuration.GetSection(CorsOptions.SectionName));
+builder.Services.Configure<StripeOptions>(builder.Configuration.GetSection(StripeOptions.SectionName));
 
 // SMTP options. Password is sourced from SMTP_PASSWORD env var so it never lives in config files.
 builder.Services
@@ -228,6 +233,10 @@ builder.Services.AddCors(options =>
 
 
 var app = builder.Build();
+
+var stripeOpts = app.Services.GetRequiredService<IOptions<StripeOptions>>().Value;
+if (!string.IsNullOrEmpty(stripeOpts.SecretKey))
+    Stripe.StripeConfiguration.ApiKey = stripeOpts.SecretKey;
 
 if (app.Environment.IsDevelopment())
 {

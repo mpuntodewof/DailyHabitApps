@@ -17,6 +17,9 @@
         public SubscriptionStatus SubscriptionStatus { get; set; } = SubscriptionStatus.None;
         public DateTime? CurrentPeriodEnd { get; set; }
 
+        public string? StripeCustomerId { get; set; }
+        public string? StripeSubscriptionId { get; set; }
+
         // Convenience: an active Pro entitlement. (Stripe will keep these in sync in Plan 7.)
         [System.ComponentModel.DataAnnotations.Schema.NotMapped]
         public bool IsProActive =>

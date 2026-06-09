@@ -44,4 +44,16 @@ public class UserSubscriptionTests
         saved.CurrentPeriodEnd.Should().Be(end);
         saved.IsProActive.Should().BeTrue();
     }
+
+    [Fact]
+    public async Task User_persists_stripe_ids()
+    {
+        using var db = TestDbContextFactory.Create();
+        var user = new User { Username = "s", Email = "s@x.com", StripeCustomerId = "cus_123", StripeSubscriptionId = "sub_456" };
+        db.Users.Add(user);
+        await db.SaveChangesAsync();
+        var saved = db.Users.Single();
+        saved.StripeCustomerId.Should().Be("cus_123");
+        saved.StripeSubscriptionId.Should().Be("sub_456");
+    }
 }

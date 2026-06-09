@@ -4,19 +4,18 @@ import { IconTrophy, IconLock, IconArrowUpRight, IconArrowDownRight } from '@tab
 import api from '../../../api/axiosInstance';
 import { getAccessToken } from '../../../utils/tokenUtils';
 import RequirePro from '../../../components/RequirePro';
-import { useAuth } from '../../../context/AuthContext';
+import { startCheckout, openBillingPortal } from '../../../utils/billing';
 
 const UpgradePanel = () => {
-  const { refreshMe } = useAuth();
   const [busy, setBusy] = useState(false);
   const handleUpgrade = async () => {
     setBusy(true);
     try {
-      // Manual plan flip — replaced by Stripe checkout in Plan 7.
-      await api.post('/Subscription/set-plan', { plan: 'Pro' });
-      await refreshMe?.();
-    } catch (err) { console.warn('Upgrade failed:', err?.message); }
-    finally { setBusy(false); }
+      await startCheckout(); // redirects to Stripe; control leaves the page on success
+    } catch (err) {
+      console.warn('Checkout failed:', err?.message);
+      setBusy(false); // only reached if the redirect didn't happen
+    }
   };
   return (
     <Card sx={{ height: '100%' }}>
@@ -108,6 +107,9 @@ const ReportContent = () => {
             </Stack>
           </>
         )}
+        <Button size="small" onClick={openBillingPortal} sx={{ mt: 1, textTransform: 'none' }}>
+          Manage subscription
+        </Button>
       </CardContent>
     </Card>
   );
