@@ -259,4 +259,53 @@ public class HabitServiceMilestoneTests
         res.IsSuccess.Should().BeFalse();
         res.StatusCode.Should().Be(HttpStatusCode.NotFound);
     }
+
+    [Fact]
+    public async Task Contribution_IdentityTitle_prefers_vision_then_goal_then_milestone()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = BuildService(db);
+        var vision = new AtomicHabits.Models.Vision { UserId = 1, Title = "Become a Remote Backend Engineer" };
+        db.Visions.Add(vision); await db.SaveChangesAsync();
+        var goal = new AtomicHabits.Models.Goal { UserId = 1, VisionId = vision.Id, Title = "Get a remote job" };
+        db.Goals.Add(goal); await db.SaveChangesAsync();
+        var milestone = new AtomicHabits.Models.Milestone { UserId = 1, GoalId = goal.Id, Title = "Build portfolio" };
+        db.Milestones.Add(milestone); await db.SaveChangesAsync();
+        var habit = new AtomicHabits.Models.Habit { UserId = 1, Name = "Code 1h", Frequency = "Daily", MilestoneId = milestone.Id };
+        db.Habits.Add(habit); await db.SaveChangesAsync();
+
+        var res = await svc.GetContributionAsync(1, habit.Id);
+        var dto = (AtomicHabits.Models.DTO.HabitContributionDto)res.Result!;
+        dto.IdentityTitle.Should().Be("Become a Remote Backend Engineer");
+    }
+
+    [Fact]
+    public async Task Contribution_IdentityTitle_falls_back_to_goal_when_no_vision()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = BuildService(db);
+        var goal = new AtomicHabits.Models.Goal { UserId = 1, Title = "Get a remote job" };
+        db.Goals.Add(goal); await db.SaveChangesAsync();
+        var milestone = new AtomicHabits.Models.Milestone { UserId = 1, GoalId = goal.Id, Title = "Build portfolio" };
+        db.Milestones.Add(milestone); await db.SaveChangesAsync();
+        var habit = new AtomicHabits.Models.Habit { UserId = 1, Name = "Code 1h", Frequency = "Daily", MilestoneId = milestone.Id };
+        db.Habits.Add(habit); await db.SaveChangesAsync();
+
+        var res = await svc.GetContributionAsync(1, habit.Id);
+        var dto = (AtomicHabits.Models.DTO.HabitContributionDto)res.Result!;
+        dto.IdentityTitle.Should().Be("Get a remote job");
+    }
+
+    [Fact]
+    public async Task Contribution_IdentityTitle_is_null_when_habit_unlinked()
+    {
+        using var db = TestDbContextFactory.Create();
+        var svc = BuildService(db);
+        var habit = new AtomicHabits.Models.Habit { UserId = 1, Name = "Drink water", Frequency = "Daily" };
+        db.Habits.Add(habit); await db.SaveChangesAsync();
+
+        var res = await svc.GetContributionAsync(1, habit.Id);
+        var dto = (AtomicHabits.Models.DTO.HabitContributionDto)res.Result!;
+        dto.IdentityTitle.Should().BeNull();
+    }
 }

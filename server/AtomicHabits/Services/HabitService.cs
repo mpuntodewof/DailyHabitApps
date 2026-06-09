@@ -305,6 +305,14 @@ namespace AtomicHabits.Services
                         VisionTitle = (h.Milestone != null && h.Milestone.Goal != null && h.Milestone.Goal.Vision != null)
                             ? h.Milestone.Goal.Vision.Title
                             : null,
+                        IdentityTitle =
+                            (h.Milestone != null && h.Milestone.Goal != null && h.Milestone.Goal.Vision != null)
+                                ? h.Milestone.Goal.Vision.Title
+                            : (h.Milestone != null && h.Milestone.Goal != null)
+                                ? h.Milestone.Goal.Title
+                            : (h.Milestone != null)
+                                ? h.Milestone.Title
+                            : null,
                     })
                     .FirstOrDefaultAsync();
 
