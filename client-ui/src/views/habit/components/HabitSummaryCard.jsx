@@ -8,32 +8,40 @@ import {
 
 const HabitSummaryCards = ({ stats }) => {
 
+    // Defensive: the API result may arrive with missing/null sub-objects (or
+    // `stats` may be undefined on first render). Read every field through
+    // optional chaining with a numeric fallback so a card never crashes the page.
+    const today = stats?.todaySummary ?? {};
+    const weekly = stats?.weeklySummary ?? {};
+    const monthly = stats?.monthlySummary ?? {};
+    const n = (v) => v ?? 0;
+
     // This Card Data is represent the summary statistics for all habits
     const cards = [
         {
             title: "Today's Progress",
-            value: `${stats.todaySummary.todayCompletionRate}%`,
-            subtitle: `${stats.todaySummary.completedToday}/${stats.todaySummary.habitsToday} habits`,
+            value: `${n(today.todayCompletionRate)}%`,
+            subtitle: `${n(today.completedToday)}/${n(today.habitsToday)} habits`,
             icon: IconProgressCheck,
             color: "#6C4ED9"
         },
         {
             title: "Weekly Completion",
-            value: `${stats.weeklySummary.weeklyCompletionRate}%`,
-            subtitle: `${stats.weeklySummary.totalCompletedThisWeek} sessions this week`,
+            value: `${n(weekly.weeklyCompletionRate)}%`,
+            subtitle: `${n(weekly.totalCompletedThisWeek)} sessions this week`,
             icon: IconCalendarStats,
             color: "#5D87FF"
         },
         {
             title: "Monthly Summary",
-            value: `${stats.monthlySummary.monthlyCompletionRate}%`,
-            subtitle: `${stats.monthlySummary.totalMonthlySessions} total sessions`,
+            value: `${n(monthly.monthlyCompletionRate)}%`,
+            subtitle: `${n(monthly.totalMonthlySessions)} total sessions`,
             icon: IconChartDonut,
             color: "#32CD32"
         },
         {
             title: "Habit Health Score",
-            value: stats.habitHealthScore,
+            value: n(stats?.habitHealthScore),
             subtitle: "Overall habit performance",
             icon: IconFlame,
             color: "#FF6B6B"
