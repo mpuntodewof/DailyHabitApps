@@ -167,6 +167,7 @@ if (!isDesignTime)
     // Per-permission authorization (custom policy provider + handler).
     builder.Services.AddSingleton<IAuthorizationPolicyProvider, PermissionPolicyProvider>();
     builder.Services.AddScoped<IAuthorizationHandler, PermissionAuthorizationHandler>();
+    builder.Services.AddScoped<IAuthorizationHandler, SubscriptionAuthorizationHandler>();
 }
 
 #endregion
