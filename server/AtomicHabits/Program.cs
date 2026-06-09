@@ -62,6 +62,7 @@ builder.Services.AddScoped<IGoalFrameworkService, GoalFrameworkService>();
 builder.Services.AddScoped<IHabitSkipService, HabitSkipService>();
 builder.Services.AddScoped<IInsightService, InsightService>();
 builder.Services.AddScoped<IWeeklyReportService, WeeklyReportService>();
+builder.Services.AddScoped<IStripeGateway, StripeGateway>();
 #endregion
 
 #region Hosted Services
