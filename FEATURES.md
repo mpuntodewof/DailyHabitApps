@@ -5,7 +5,7 @@
 > subscription. Each plan was spec'd → planned → built test-first (fresh
 > subagents, two-stage spec + code-quality review) → merged.
 >
-> Design specs live in `docs/superpowers/specs/`, plans in `docs/superpowers/plans/`.
+> The per-plan build log is in `docs/CHANGELOG-performance-os-v1.md`.
 
 ---
 

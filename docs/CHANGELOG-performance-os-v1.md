@@ -11,7 +11,6 @@
 ---
 
 ## Plan 1 — Foundation (data model)
-*Spec: `docs/superpowers/specs/2026-06-07-momentum-performance-os-v1-design.md` §1 · Plan: `docs/superpowers/plans/2026-06-07-momentum-performance-os-plan1-foundation.md`*
 
 The schema that turns a tracker into a performance system.
 
@@ -22,7 +21,6 @@ The schema that turns a tracker into a performance system.
 - **Tests:** 6 model tests (started from a pre-existing harness; ~42 total at this point).
 
 ## Plan 2 — Goal→Habit Framework (FREE)
-*Spec: …v1-design §2 · Plan: `…-plan2-goal-habit-framework.md`*
 
 The visible hook proving the repositioning.
 
@@ -32,7 +30,6 @@ The visible hook proving the repositioning.
 - **Tests:** ~55. Review added cross-user mutation tests + defensive owner-scoping on delete child-queries.
 
 ## Goal↔Habit Motivation Redesign (mid-build pivot)
-*Spec: `docs/superpowers/specs/2026-06-07-goal-habit-motivation-redesign.md` · Plan: `…-goal-habit-motivation-redesign-plan.md`*
 
 Rebuilt the linkage from "bookkeeping" into real motivation.
 
@@ -41,7 +38,6 @@ Rebuilt the linkage from "bookkeeping" into real motivation.
 - **Tests:** SQLite-backed translation test + the identity resolver tests.
 
 ## Plan 3 — Failure Capture (FREE)
-*Spec: …v1-design §3a · Plan: `…-plan3-failure-capture.md`*
 
 - **Endpoints:** `POST /api/HabitSkip`, `GET /api/HabitSkip/habit/{habitId}`, `DELETE /api/HabitSkip/{skipId}`.
 - **Backend:** `HabitSkipService` — one skip per habit/day (upsert), reason validated against the enum (`Enum.IsDefined`), owner-scoped.
@@ -49,7 +45,6 @@ Rebuilt the linkage from "bookkeeping" into real motivation.
 - **Tests:** ~71.
 
 ## Plan 4 — Subscription Entitlement + `<RequirePro>`
-*Spec: …v1-design §5 (minus Stripe) · Plan: `…-plan4-entitlement.md`*
 
 The paywall *mechanism* (no billing yet).
 
@@ -60,7 +55,6 @@ The paywall *mechanism* (no billing yet).
 - **Tests:** ~79 (handler covers active/free/pastdue).
 
 ## Plan 5 — Failure Analysis Insights (PAID)
-*Spec: …v1-design §3b · Plan: `2026-06-09-momentum-performance-os-plan5-insights.md`*
 
 The first paid feature — rules-based, no LLM.
 
@@ -71,7 +65,6 @@ The first paid feature — rules-based, no LLM.
 - **Tests:** ~86.
 
 ## Plan 6 — Weekly CEO Report (PAID, in-app)
-*Spec: `docs/superpowers/specs/2026-06-09-weekly-ceo-report-design.md` · Plan: `…-weekly-ceo-report-plan.md`*
 
 The second paid feature — a curated weekly narrative.
 
@@ -82,7 +75,7 @@ The second paid feature — a curated weekly narrative.
 - **Tests:** ~95 (incl. a SQLite-backed test + a real cross-habit weighting test).
 
 ## Plan 7 — Stripe Billing (the real paywall)
-*Spec: `docs/superpowers/specs/2026-06-09-stripe-billing-design.md` · Plan: `2026-06-09-stripe-billing-plan.md` · Runbook: `docs/superpowers/specs/STRIPE-LIVE-TEST-RUNBOOK.md`*
+*Runbook: `docs/superpowers/specs/STRIPE-LIVE-TEST-RUNBOOK.md`*
 
 Replaces the manual toggle with real subscription billing.
 

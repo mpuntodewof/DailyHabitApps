@@ -255,7 +255,7 @@ Legend: ✅ working, ⚠️ working with known bugs, 🟡 partially built / sche
 ## 10. Platform / DevOps Roadmap
 
 - **Real CI/CD** — README mentions Jenkins + Docker but no `Dockerfile` / `Jenkinsfile` is present. Add multi-stage Dockerfiles for both projects, a pipeline (build → test → migrate → deploy), and a `docker-compose.yml` for local SQL Server + API + UI.
-- **Automated tests** — ⏳ *backend in progress* (2026-06-07): `server/AtomicHabits.Tests` (xUnit + EF InMemory + SQLite + `WebApplicationFactory` + Moq), **36 tests**. Covers `StreakCalculator`, `TwoFactorService` recovery codes, `HabitService` summary math, **`HabitTrackingService`** (duplicate-day rejection, create path) + **`StreakRepositories`** upsert + **distribution bucketing** (weekly/monthly), three regression guards (2FA pending-token, registration commit, **persisted-streak-never-advances**), register/login HTTP integration, and habit IDOR. **Still uncovered:** `DashboardService` heatmap buckets, the reminder dispatcher, and the **entire frontend** (no Vitest/RTL yet). Plans: `docs/superpowers/plans/2026-06-07-backend-test-suite.md`, `…-habit-tracking-test-slice.md`.
+- **Automated tests** — ⏳ *backend in progress* (2026-06-07): `server/AtomicHabits.Tests` (xUnit + EF InMemory + SQLite + `WebApplicationFactory` + Moq), **36 tests**. Covers `StreakCalculator`, `TwoFactorService` recovery codes, `HabitService` summary math, **`HabitTrackingService`** (duplicate-day rejection, create path) + **`StreakRepositories`** upsert + **distribution bucketing** (weekly/monthly), three regression guards (2FA pending-token, registration commit, **persisted-streak-never-advances**), register/login HTTP integration, and habit IDOR. **Still uncovered:** `DashboardService` heatmap buckets, the reminder dispatcher, and the **entire frontend** (no Vitest/RTL yet).
 - **Observability** — structured logging (Serilog + Seq/ELK), OpenTelemetry traces, health-check endpoint.
 - **Centralized config / secrets** — Azure Key Vault or AWS Secrets Manager; remove `Trusted_Connection=True` localhost default in [appsettings.json](server/AtomicHabits/appsettings.json#L3).
 - **API versioning** — `/api/v1/...` before public release.
@@ -613,7 +613,7 @@ Build status: backend **0 errors**, frontend **vite build ✓**, **typecheck ✓
 
 ### 2026-06-07 — 2FA recovery codes (§9 near-term)
 
-Single-use recovery codes as a fallback when an authenticator device is lost. Full lifecycle: issue at enrollment, log in with a code, regenerate from Settings. Design + ADR: [docs/superpowers/specs/2026-06-06-2fa-recovery-codes-design.md](docs/superpowers/specs/2026-06-06-2fa-recovery-codes-design.md), [docs/superpowers/adr/0001-2fa-recovery-codes.md](docs/superpowers/adr/0001-2fa-recovery-codes.md).
+Single-use recovery codes as a fallback when an authenticator device is lost. Full lifecycle: issue at enrollment, log in with a code, regenerate from Settings. ADR: [docs/superpowers/adr/0001-2fa-recovery-codes.md](docs/superpowers/adr/0001-2fa-recovery-codes.md).
 
 Backend:
 - New entity [`Models/TwoFactorRecoveryCode.cs`](server/AtomicHabits/Models/TwoFactorRecoveryCode.cs) — one row per code, SHA-256 hash of the normalized code, `IsUsed`/`UsedAt`. Registered in [`AppDbContext`](server/AtomicHabits/Data/AppDbContext.cs) with `IX_TwoFactorRecoveryCodes_UserId`. Migration `AddTwoFactorRecoveryCodes` (applied).
@@ -633,7 +633,7 @@ Deferred (non-blocking): per-attempt rate-limiting on recovery codes, audit logg
 
 ### 2026-06-07 — Backend test suite (Platform/DevOps: automated tests)
 
-First automated tests for the backend. New `server/AtomicHabits.Tests` xUnit project (EF InMemory + SQLite + `WebApplicationFactory` + Moq), **24 tests, all green**. Plan: [docs/superpowers/plans/2026-06-07-backend-test-suite.md](docs/superpowers/plans/2026-06-07-backend-test-suite.md).
+First automated tests for the backend. New `server/AtomicHabits.Tests` xUnit project (EF InMemory + SQLite + `WebApplicationFactory` + Moq), **24 tests, all green**.
 
 Coverage:
 - **Unit** — [`StreakCalculator`](server/AtomicHabits/Utils/StreakCalculator.cs) (6 cases); [`TwoFactorService`](server/AtomicHabits/Services/TwoFactorService.cs) recovery-code lifecycle (SQLite-backed, since EF InMemory doesn't support `ExecuteUpdateAsync`); [`HabitService.HabitSummary`](server/AtomicHabits/Services/HabitService.cs) per-frequency math.
@@ -651,7 +651,7 @@ Run the suite: `dotnet test server/AtomicHabits.sln`.
 
 ### 2026-06-07 — HabitTracking test slice (+ streak-reset bug fix)
 
-Extended the backend suite from 24 → **36 tests** over the daily-write path. Plan: [docs/superpowers/plans/2026-06-07-habit-tracking-test-slice.md](docs/superpowers/plans/2026-06-07-habit-tracking-test-slice.md).
+Extended the backend suite from 24 → **36 tests** over the daily-write path.
 
 - **`StreakRepositories.UpsertStreakAfterTracking`** — 4 tests (first completion, consecutive→2, missed-day breaks current keeps best, completion-rate).
 - **`HabitTrackingService`** — duplicate-day rejection (`PostHabitProgress` + `PostDailyHabit` → 409), create-path, habit-not-found 404.
